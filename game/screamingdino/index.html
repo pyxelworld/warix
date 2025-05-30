@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screaming Dino</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f7f7f7;
+            font-family: Arial, sans-serif;
+        }
+        #gameCanvas {
+            border: 1px solid #000;
+        }
+        #volumeIndicator {
+            width: 200px;
+            height: 20px;
+            background-color: #ddd;
+            margin-top: 10px;
+        }
+        #volumeBar {
+            height: 100%;
+            width: 0;
+            background-color: #4CAF50;
+            transition: width 0.1s;
+        }
+        #instructions {
+            text-align: center;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <canvas id="gameCanvas" width="800" height="200"></canvas>
+        <div id="volumeIndicator">
+            <div id="volumeBar"></div>
+        </div>
+        <div id="instructions">Scream to make the dino jump!</div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const volumeBar = document.getElementById('volumeBar');
+        const instructions = document.getElementById('instructions');
+
+        const GAME_SPEED = 5;
+        const GRAVITY = 0.6;
+        const JUMP_FORCE = -10;
+        const GROUND_HEIGHT = 170;
+        const DINO_WIDTH = 40;
+        const DINO_HEIGHT = 43;
+
+        let highScore = 0;
+        const hasLocalStorage = (function() {
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                return true;
+            } catch(e) {
+                return false;
+            }
+        })();
+
+        if (hasLocalStorage) {
+            const storedHighScore = localStorage.getItem('dinoHighScore');
+            if (storedHighScore) {
+                highScore = parseInt(storedHighScore, 10);
+            }
+        }
+
+        class Dino {
+            constructor() {
+                this.x = 50;
+                this.y = GROUND_HEIGHT - DINO_HEIGHT;
+                this.vy = 0;
+                this.originalY = this.y;
+                this.jumpForce = JUMP_FORCE;
+                this.grounded = true;
+                this.jumpTimer = 0;
+                this.legRaised = false;
+                this.jumpCooldown = 0;
+            }
+
+            jump() {
+                if (this.grounded && this.jumpCooldown === 0) {
+                    this.vy = this.jumpForce;
+                    this.grounded = false;
+                    this.jumpTimer = 0;
+                    this.jumpCooldown = 30; // Set cooldown to 30 frames (0.5 seconds at 60 FPS)
+                }
+            }
+
+            update() {
+                this.y += this.vy;
+                if (this.y < this.originalY) {
+                    this.vy += GRAVITY;
+                    this.grounded = false;
+                } else {
+                    this.y = this.originalY;
+                    this.vy = 0;
+                    this.grounded = true;
+                }
+
+                this.jumpTimer++;
+                if (this.jumpTimer % 6 === 0) {
+                    this.legRaised = !this.legRaised;
+                }
+
+                if (this.jumpCooldown > 0) {
+                    this.jumpCooldown--;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = '#535353';
+                
+                // Body
+                ctx.fillRect(this.x, this.y, DINO_WIDTH - 10, DINO_HEIGHT - 5);
+                
+                // Neck
+                ctx.fillRect(this.x + DINO_WIDTH - 15, this.y + 5, 15, 20);
+                
+                // Head
+                ctx.fillRect(this.x + DINO_WIDTH - 10, this.y, 10, 15);
+                
+                // Eye
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(this.x + DINO_WIDTH - 5, this.y + 3, 2, 2);
+                
+                // Legs
+                ctx.fillStyle = '#535353';
+                if (this.grounded) {
+                    if (this.legRaised) {
+                        ctx.fillRect(this.x + 5, this.y + DINO_HEIGHT - 5, 5, 5);
+                        ctx.fillRect(this.x + DINO_WIDTH - 15, this.y + DINO_HEIGHT - 5, 5, 5);
+                    } else {
+                        ctx.fillRect(this.x, this.y + DINO_HEIGHT - 5, 5, 5);
+                        ctx.fillRect(this.x + DINO_WIDTH - 20, this.y + DINO_HEIGHT - 5, 5, 5);
+                    }
+                } else {
+                    ctx.fillRect(this.x + 5, this.y + DINO_HEIGHT - 5, 5, 5);
+                    ctx.fillRect(this.x + DINO_WIDTH - 15, this.y + DINO_HEIGHT - 5, 5, 5);
+                }
+
+                // Draw cooldown indicator
+                if (this.jumpCooldown > 0) {
+                    const cooldownWidth = (this.jumpCooldown / 30) * DINO_WIDTH;
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+                    ctx.fillRect(this.x, this.y - 10, cooldownWidth, 5);
+                }
+            }
+        }
+
+        class Obstacle {
+            constructor(x) {
+                this.x = x;
+                this.width = 20;
+                this.height = 40;
+                this.y = GROUND_HEIGHT - this.height;
+            }
+
+            update() {
+                this.x -= GAME_SPEED;
+            }
+
+            draw() {
+                ctx.fillStyle = '#535353';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.fillRect(this.x + 5, this.y - 10, 10, 10);
+                ctx.fillRect(this.x + 10, this.y - 5, 5, 5);
+            }
+        }
+
+        class Cloud {
+            constructor(x) {
+                this.x = x;
+                this.y = Math.random() * 100 + 20;
+                this.width = 30;
+                this.height = 15;
+            }
+
+            update() {
+                this.x -= GAME_SPEED / 2;
+            }
+
+            draw() {
+                ctx.fillStyle = '#c8c8c8';
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x + 10, this.y - 5);
+                ctx.lineTo(this.x + 20, this.y - 5);
+                ctx.lineTo(this.x + 30, this.y);
+                ctx.lineTo(this.x + 20, this.y + 5);
+                ctx.lineTo(this.x + 10, this.y + 5);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        const dino = new Dino();
+        let obstacles = [];
+        let clouds = [];
+        let score = 0;
+        let gameOver = false;
+        let canRestart = false;
+        let restartTimer = 0;
+
+        function spawnObstacle() {
+            const lastObstacle = obstacles[obstacles.length - 1];
+            const minDistance = 300;
+            const maxDistance = 500;
+            const distance = Math.floor(Math.random() * (maxDistance - minDistance + 1) + minDistance);
+
+            if (!lastObstacle || canvas.width - lastObstacle.x >= distance) {
+                obstacles.push(new Obstacle(canvas.width));
+            }
+        }
+
+        function spawnCloud() {
+            const lastCloud = clouds[clouds.length - 1];
+            const minDistance = 200;
+            const maxDistance = 400;
+            const distance = Math.floor(Math.random() * (maxDistance - minDistance + 1) + minDistance);
+
+            if (!lastCloud || canvas.width - lastCloud.x >= distance) {
+                clouds.push(new Cloud(canvas.width));
+            }
+        }
+
+        function drawGround() {
+            ctx.fillStyle = '#535353';
+            ctx.fillRect(0, GROUND_HEIGHT, canvas.width, 2);
+
+            for (let i = 0; i < canvas.width; i += 5) {
+                ctx.fillRect(i, GROUND_HEIGHT + 2, 1, 1);
+            }
+        }
+
+        function checkCollision(dino, obstacle) {
+            return (
+                dino.x < obstacle.x + obstacle.width &&
+                dino.x + DINO_WIDTH > obstacle.x &&
+                dino.y < obstacle.y + obstacle.height &&
+                dino.y + DINO_HEIGHT > obstacle.y
+            );
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (!gameOver) {
+                dino.update();
+                spawnObstacle();
+                spawnCloud();
+
+                obstacles = obstacles.filter(obstacle => obstacle.x > -obstacle.width);
+                clouds = clouds.filter(cloud => cloud.x > -cloud.width);
+
+                obstacles.forEach(obstacle => {
+                    obstacle.update();
+                    if (checkCollision(dino, obstacle)) {
+                        gameOver = true;
+                        if (score > highScore) {
+                            highScore = score;
+                            if (hasLocalStorage) {
+                                localStorage.setItem('dinoHighScore', highScore.toString());
+                            }
+                        }
+                    }
+                });
+
+                clouds.forEach(cloud => cloud.update());
+
+                score++;
+            } else {
+                restartTimer++;
+                if (restartTimer >= 60) { // 1 second delay (60 frames at 60 FPS)
+                    canRestart = true;
+                }
+            }
+
+            // Draw game elements
+            clouds.forEach(cloud => cloud.draw());
+            drawGround();
+            obstacles.forEach(obstacle => obstacle.draw());
+            dino.draw();
+
+            // Draw score and high score
+            ctx.fillStyle = '#535353';
+            ctx.font = '16px Arial';
+            ctx.fillText(`Score: ${score}`, 650, 30);
+            ctx.fillText(`High Score: ${highScore}`, 650, 50);
+
+            if (gameOver) {
+                ctx.fillStyle = '#535353';
+                ctx.font = '24px Arial';
+                ctx.fillText('Game Over', 350, 100);
+                
+                if (canRestart) {
+                    ctx.fillText('Scream to Restart', 320, 130);
+                } else {
+                    ctx.fillText('Get ready to scream...', 300, 130);
+                }
+
+                if (score === highScore) {
+                    ctx.fillStyle = '#FFD700';
+                    ctx.fillText('New High Score!', 320, 160);
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Audio setup
+        let audioContext;
+        let analyser;
+        let microphone;
+        let javascriptNode;
+
+        function setupAudio() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+
+            navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+                .then(function(stream) {
+                    microphone = audioContext.createMediaStreamSource(stream);
+                    microphone.connect(analyser);
+                    analyser.connect(javascriptNode);
+                    javascriptNode.connect(audioContext.destination);
+                })
+                .catch(function(err) {
+                    console.error('Error accessing microphone:', err);
+                    alert('Unable to access the microphone. Please make sure you have a microphone connected and you\'ve granted permission to use it.');
+                });
+
+            javascriptNode.onaudioprocess = function() {
+                const array = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(array);
+                let values = 0;
+
+                const length = array.length;
+                for (let i = 0; i < length; i++) {
+                    values += array[i];
+                }
+
+                const average = values / length;
+                const volume = Math.min(average / 50, 1);  // Normalize to 0-1 range
+
+                // Update volume bar
+                volumeBar.style.width = (volume * 100) + '%';
+
+                // Trigger jump if volume exceeds threshold
+                if (volume > 0.5) {  // Adjust this threshold as needed
+                    if (!gameOver) {
+                        dino.jump();
+                    } else if (canRestart) {
+                        restartGame();
+                    }
+                }
+            };
+        }
+
+        function restartGame() {
+            dino.y = dino.originalY;
+            obstacles = [];
+            clouds = [];
+            score = 0;
+            gameOver = false;
+            canRestart = false;
+            restartTimer = 0;
+            instructions.textContent = 'Scream to make the dino jump!';
+        }
+
+        // Start the game
+        setupAudio();
+        gameLoop();
+    </script>
+</body>
+</html>

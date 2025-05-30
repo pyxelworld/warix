@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whack-a-Mole</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: #e94560;
+        }
+        .game-container {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        #score, #timer {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .hole {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #533d36 0%, #3a2a25 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.1s ease;
+        }
+        .mole {
+            width: 80px;
+            height: 80px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="%23964B00"/><circle cx="30" cy="40" r="5" fill="%23000"/><circle cx="70" cy="40" r="5" fill="%23000"/><path d="M 30 70 Q 50 80 70 70" fill="none" stroke="%23000" stroke-width="3"/><ellipse cx="50" cy="55" rx="15" ry="10" fill="%23C49A6C"/></svg>');
+            background-size: cover;
+            display: none;
+            transition: all 0.1s ease;
+        }
+        .hole.whacked {
+            background: radial-gradient(circle, #ff6b6b 0%, #ee5253 100%);
+            transform: scale(0.95);
+        }
+        .hole.missed {
+            background: radial-gradient(circle, #ff9ff3 0%, #feca57 100%);
+            transform: scale(0.95);
+        }
+        #start-btn {
+            font-size: 1.2em;
+            padding: 10px 30px;
+            margin-top: 20px;
+            background: #e94560;
+            color: #fff;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        #start-btn:hover {
+            background: #ff6b6b;
+            transform: scale(1.05);
+        }
+        #game-over {
+            display: none;
+            font-size: 1.5em;
+            margin-top: 20px;
+            font-weight: bold;
+            color: #ff6b6b;
+        }
+        .timer-bar {
+            width: 100%;
+            height: 10px;
+            background: #16213e;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .timer-progress {
+            width: 100%;
+            height: 100%;
+            background: #e94560;
+            transition: width 1s linear;
+        }
+        @keyframes scoreChange {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .score-change {
+            animation: scoreChange 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Whack-a-Mole</h1>
+        <div class="game-info">
+            <div id="score">Score: 0</div>
+            <div id="timer">Time: 30s</div>
+        </div>
+        <div class="timer-bar">
+            <div class="timer-progress"></div>
+        </div>
+        <div class="game-board">
+            <div class="hole"><div class="mole"></div></div>
+            <div class="hole"><div class="mole"></div></div>
+            <div class="hole"><div class="mole"></div></div>
+            <div class="hole"><div class="mole"></div></div>
+            <div class="hole"><div class="mole"></div></div>
+            <div class="hole"><div class="mole"></div></div>
+            <div class="hole"><div class="mole"></div></div>
+            <div class="hole"><div class="mole"></div></div>
+            <div class="hole"><div class="mole"></div></div>
+        </div>
+        <button id="start-btn">Start Game</button>
+        <div id="game-over"></div>
+    </div>
+
+    <script>
+        const holes = document.querySelectorAll('.hole');
+        const moles = document.querySelectorAll('.mole');
+        const scoreDisplay = document.querySelector('#score');
+        const timerDisplay = document.querySelector('#timer');
+        const startButton = document.querySelector('#start-btn');
+        const gameOverDisplay = document.querySelector('#game-over');
+        const timerProgress = document.querySelector('.timer-progress');
+
+        let score = 0;
+        let timeLeft = 30;
+        let gameInterval;
+        let countdownInterval;
+
+        // const whackSound = new Audio('data:audio/wav;base64,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');
+        // const missSound = new Audio('data:audio/wav;base64,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');
+
+        function randomTime(min, max) {
+            return Math.round(Math.random() * (max - min) + min);
+        }
+
+        function randomHole(holes) {
+            const index = Math.floor(Math.random() * holes.length);
+            const hole = holes[index];
+            if (hole === lastHole) {
+                return randomHole(holes);
+            }
+            lastHole = hole;
+            return hole;
+        }
+
+        let lastHole;
+
+        function peep() {
+            const time = randomTime(600, 1200);
+            const hole = randomHole(holes);
+            hole.querySelector('.mole').style.display = 'block';
+            setTimeout(() => {
+                hole.querySelector('.mole').style.display = 'none';
+                if (timeLeft > 0) peep();
+            }, time);
+        }
+
+        function startGame() {
+            score = 0;
+            timeLeft = 30;
+            updateScore();
+            timerDisplay.textContent = `Time: ${timeLeft}s`;
+            startButton.style.display = 'none';
+            gameOverDisplay.style.display = 'none';
+            timerProgress.style.width = '100%';
+
+            peep();
+
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = `Time: ${timeLeft}s`;
+                timerProgress.style.width = `${(timeLeft / 30) * 100}%`;
+                if (timeLeft === 0) {
+                    clearInterval(countdownInterval);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            clearInterval(countdownInterval);
+            moles.forEach(mole => mole.style.display = 'none');
+            gameOverDisplay.textContent = `Game Over! Final Score: ${score}`;
+            gameOverDisplay.style.display = 'block';
+            startButton.style.display = 'inline-block';
+            startButton.textContent = 'Play Again';
+            timerProgress.style.width = '0%';
+        }
+
+        function updateScore() {
+            scoreDisplay.textContent = `Score: ${score}`;
+            scoreDisplay.classList.add('score-change');
+            setTimeout(() => scoreDisplay.classList.remove('score-change'), 300);
+        }
+
+        function whack(e) {
+            if (!e.isTrusted) return;
+            const clickedHole = e.target.closest('.hole');
+            if (clickedHole) {
+                if (clickedHole.querySelector('.mole').style.display === 'block') {
+                    score++;
+                    clickedHole.querySelector('.mole').style.display = 'none';
+                    clickedHole.classList.add('whacked');
+                    // whackSound.play();
+                    setTimeout(() => {
+                        clickedHole.classList.remove('whacked');
+                    }, 300);
+                } else {
+                    score = Math.max(0, score - 1);
+                    clickedHole.classList.add('missed');
+                    // missSound.play();
+                    setTimeout(() => {
+                        clickedHole.classList.remove('missed');
+                    }, 300);
+                }
+                updateScore();
+            }
+        }
+
+        holes.forEach(hole => hole.addEventListener('mousedown', whack));
+        startButton.addEventListener('click', startGame);
+    </script>
+</body>
+</html>

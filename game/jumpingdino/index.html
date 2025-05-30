@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jumping Dino</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f7f7f7;
+            font-family: Arial, sans-serif;
+        }
+        #gameCanvas {
+            border: 1px solid #000;
+            max-width: 100%;
+            max-height: 100vh;
+        }
+        @media (max-width: 800px) {
+            #gameCanvas {
+                width: 100%;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="200"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const GAME_SPEED = 5;
+        const GRAVITY = 0.6;
+        const JUMP_FORCE = -10;
+        const GROUND_HEIGHT = 170;
+        const DINO_WIDTH = 40;
+        const DINO_HEIGHT = 43;
+
+        let highScore = 0;
+        let gameState = 'home'; // 'home', 'playing', 'gameOver'
+
+        const hasLocalStorage = (function() {
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                return true;
+            } catch(e) {
+                return false;
+            }
+        })();
+
+        if (hasLocalStorage) {
+            const storedHighScore = localStorage.getItem('dinoHighScore');
+            if (storedHighScore) {
+                highScore = parseInt(storedHighScore, 10);
+            }
+        }
+
+        class Dino {
+            constructor() {
+                this.x = 50;
+                this.y = GROUND_HEIGHT - DINO_HEIGHT;
+                this.vy = 0;
+                this.originalY = this.y;
+                this.jumpForce = JUMP_FORCE;
+                this.grounded = true;
+                this.jumpTimer = 0;
+                this.legRaised = false;
+            }
+
+            jump() {
+                if (this.grounded) {
+                    this.vy = this.jumpForce;
+                    this.grounded = false;
+                    this.jumpTimer = 0;
+                }
+            }
+
+            update() {
+                this.y += this.vy;
+                if (this.y < this.originalY) {
+                    this.vy += GRAVITY;
+                    this.grounded = false;
+                } else {
+                    this.y = this.originalY;
+                    this.vy = 0;
+                    this.grounded = true;
+                }
+
+                this.jumpTimer++;
+                if (this.jumpTimer % 6 === 0) {
+                    this.legRaised = !this.legRaised;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = '#535353';
+                
+                // Body
+                ctx.fillRect(this.x, this.y, DINO_WIDTH - 10, DINO_HEIGHT - 5);
+                
+                // Neck
+                ctx.fillRect(this.x + DINO_WIDTH - 15, this.y + 5, 15, 20);
+                
+                // Head
+                ctx.fillRect(this.x + DINO_WIDTH - 10, this.y, 10, 15);
+                
+                // Eye
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(this.x + DINO_WIDTH - 5, this.y + 3, 2, 2);
+                
+                // Legs
+                ctx.fillStyle = '#535353';
+                if (this.grounded) {
+                    if (this.legRaised) {
+                        ctx.fillRect(this.x + 5, this.y + DINO_HEIGHT - 5, 5, 5);
+                        ctx.fillRect(this.x + DINO_WIDTH - 15, this.y + DINO_HEIGHT - 5, 5, 5);
+                    } else {
+                        ctx.fillRect(this.x, this.y + DINO_HEIGHT - 5, 5, 5);
+                        ctx.fillRect(this.x + DINO_WIDTH - 20, this.y + DINO_HEIGHT - 5, 5, 5);
+                    }
+                } else {
+                    ctx.fillRect(this.x + 5, this.y + DINO_HEIGHT - 5, 5, 5);
+                    ctx.fillRect(this.x + DINO_WIDTH - 15, this.y + DINO_HEIGHT - 5, 5, 5);
+                }
+            }
+        }
+
+        class Obstacle {
+            constructor(x, type) {
+                this.x = x;
+                this.type = type;
+                this.setDimensions();
+                this.y = GROUND_HEIGHT - this.height;
+            }
+
+            setDimensions() {
+                switch (this.type) {
+                    case 'small':
+                        this.width = 20;
+                        this.height = 40;
+                        break;
+                    case 'medium':
+                        this.width = 30;
+                        this.height = 55;
+                        break;
+                    case 'large':
+                        this.width = 35;
+                        this.height = 60;
+                        break;
+                    case 'double':
+                        this.width = 40;
+                        this.height = 40;
+                        break;
+                }
+            }
+
+            update() {
+                this.x -= GAME_SPEED;
+            }
+
+            draw() {
+                ctx.fillStyle = '#535353';
+                if (this.type === 'double') {
+                    this.drawSmallCactus(this.x);
+                    this.drawSmallCactus(this.x + 20);
+                } else {
+                    ctx.fillRect(this.x, this.y, this.width, this.height);
+                    this.drawDetails();
+                }
+            }
+
+            drawSmallCactus(x) {
+                ctx.fillRect(x, this.y, 20, 40);
+                ctx.fillRect(x + 5, this.y - 10, 10, 10);
+                ctx.fillRect(x + 10, this.y - 5, 5, 5);
+            }
+
+            drawDetails() {
+                switch (this.type) {
+                    case 'small':
+                        ctx.fillRect(this.x + 5, this.y - 10, 10, 10);
+                        ctx.fillRect(this.x + 10, this.y - 5, 5, 5);
+                        break;
+                    case 'medium':
+                        ctx.fillRect(this.x + 7, this.y - 15, 15, 15);
+                        ctx.fillRect(this.x + 15, this.y - 7, 7, 7);
+                        ctx.fillRect(this.x + 3, this.y + 10, 7, 7);
+                        break;
+                    case 'large':
+                        ctx.fillRect(this.x + 8, this.y - 18, 18, 18);
+                        ctx.fillRect(this.x + 18, this.y - 9, 9, 9);
+                        ctx.fillRect(this.x + 4, this.y + 12, 8, 8);
+                        ctx.fillRect(this.x + 22, this.y + 15, 8, 8);
+                        break;
+                }
+            }
+        }
+
+        class Cloud {
+            constructor(x) {
+                this.x = x;
+                this.y = Math.random() * 100 + 20;
+                this.width = 30;
+                this.height = 15;
+            }
+
+            update() {
+                this.x -= GAME_SPEED / 2;
+            }
+
+            draw() {
+                ctx.fillStyle = '#c8c8c8';
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x + 10, this.y - 5);
+                ctx.lineTo(this.x + 20, this.y - 5);
+                ctx.lineTo(this.x + 30, this.y);
+                ctx.lineTo(this.x + 20, this.y + 5);
+                ctx.lineTo(this.x + 10, this.y + 5);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        const dino = new Dino();
+        let obstacles = [];
+        let clouds = [];
+        let score = 0;
+
+        function spawnObstacle() {
+            const lastObstacle = obstacles[obstacles.length - 1];
+            const minDistance = 350;
+            const maxDistance = 500;
+            const distance = Math.floor(Math.random() * (maxDistance - minDistance + 1) + minDistance);
+
+            if (!lastObstacle || canvas.width - lastObstacle.x >= distance) {
+                const random = Math.random();
+                let type;
+                if (random < 0.7) {
+                    type = 'small';
+                } else if (random < 0.85) {
+                    type = 'medium';
+                } else if (random < 0.95) {
+                    type = 'double';
+                } else {
+                    type = 'large';
+                }
+                obstacles.push(new Obstacle(canvas.width, type));
+            }
+        }
+
+        function spawnCloud() {
+            const lastCloud = clouds[clouds.length - 1];
+            const minDistance = 200;
+            const maxDistance = 400;
+            const distance = Math.floor(Math.random() * (maxDistance - minDistance + 1) + minDistance);
+
+            if (!lastCloud || canvas.width - lastCloud.x >= distance) {
+                clouds.push(new Cloud(canvas.width));
+            }
+        }
+
+        function drawGround() {
+            ctx.fillStyle = '#535353';
+            ctx.fillRect(0, GROUND_HEIGHT, canvas.width, 2);
+
+            for (let i = 0; i < canvas.width; i += 5) {
+                ctx.fillRect(i, GROUND_HEIGHT + 2, 1, 1);
+            }
+        }
+
+        function checkCollision(dino, obstacle) {
+            return (
+                dino.x < obstacle.x + obstacle.width &&
+                dino.x + DINO_WIDTH > obstacle.x &&
+                dino.y < obstacle.y + obstacle.height &&
+                dino.y + DINO_HEIGHT > obstacle.y
+            );
+        }
+
+        function drawHomeScreen() {
+            ctx.fillStyle = '#535353';
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Jumping Dino', canvas.width / 2, 80);
+            ctx.font = '18px Arial';
+            ctx.fillText('Press Space or Tap to Start', canvas.width / 2, 120);
+            ctx.fillText('High Score: ' + highScore, canvas.width / 2, 160);
+        }
+
+        function startGame() {
+            gameState = 'playing';
+            score = 0;
+            obstacles = [];
+            clouds = [];
+            dino.y = dino.originalY;
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameState === 'home') {
+                drawHomeScreen();
+            } else if (gameState === 'playing') {
+                dino.update();
+                spawnObstacle();
+                spawnCloud();
+
+                obstacles = obstacles.filter(obstacle => obstacle.x > -obstacle.width);
+                clouds = clouds.filter(cloud => cloud.x > -cloud.width);
+
+                obstacles.forEach(obstacle => {
+                    obstacle.update();
+                    if (checkCollision(dino, obstacle)) {
+                        gameState = 'gameOver';
+                        if (score > highScore) {
+                            highScore = score;
+                            if (hasLocalStorage) {
+                                localStorage.setItem('dinoHighScore', highScore.toString());
+                            }
+                        }
+                    }
+                });
+
+                clouds.forEach(cloud => cloud.update());
+
+                score++;
+
+                // Draw game elements
+                clouds.forEach(cloud => cloud.draw());
+                drawGround();
+                obstacles.forEach(obstacle => obstacle.draw());
+                dino.draw();
+
+                // Draw score and high score
+                ctx.fillStyle = '#535353';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'right';
+                ctx.fillText(`Score: ${score}`, canvas.width - 10, 30);
+                ctx.fillText(`High Score: ${highScore}`, canvas.width - 10, 50);
+            } else if (gameState === 'gameOver') {
+                // Draw game elements
+                clouds.forEach(cloud => cloud.draw());
+                drawGround();
+                obstacles.forEach(obstacle => obstacle.draw());
+                dino.draw();
+
+                ctx.fillStyle = '#535353';
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Game Over', canvas.width / 2, 100);
+                ctx.fillText('Press Space or Tap to Restart', canvas.width / 2, 130);
+
+                ctx.font = '18px Arial';
+                ctx.fillText(`Score: ${score}`, canvas.width / 2, 160);
+                ctx.fillText(`High Score: ${highScore}`, canvas.width / 2, 190);
+
+                if (score === highScore) {
+                    ctx.fillStyle = '#FFD700';
+                    ctx.fillText('New High Score!', canvas.width / 2, 220);
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function handleInput() {
+            if (gameState === 'home') {
+                startGame();
+            } else if (gameState === 'playing') {
+                dino.jump();
+            } else if (gameState === 'gameOver') {
+                startGame();
+            }
+        }
+
+        document.addEventListener('keydown', event => {
+            if (event.code === 'Space') {
+                handleInput();
+            }
+        });
+
+        canvas.addEventListener('touchstart', event => {
+            event.preventDefault();
+            handleInput();
+        });
+
+        canvas.addEventListener('click', event => {
+            handleInput();
+        });
+
+        gameLoop();
+    </script>
+</body>
+</html>

@@ -9,7 +9,7 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
         :root {
@@ -30,8 +30,8 @@
             --shadow-md: 0 8px 15px rgba(0,0,0,0.3);
             --shadow-lg: 0 15px 30px rgba(0,0,0,0.4);
 
-            --card-min-width: 240px;
-            --card-ideal-width: 260px; /* Largura preferida para os cards */
+            --card-min-width: 220px;
+            --card-ideal-width: 240px; /* Slightly smaller width for cards */
         }
 
         * {
@@ -77,21 +77,22 @@
         }
 
         header {
-            background-color: rgba(var(--color-dark-purple-bg-rgb), 0.8);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            padding: 15px 0;
-            border-bottom: 1px solid rgba(var(--color-purple-rgb), 0.5);
+            background-color: rgba(var(--color-dark-purple-bg-rgb), 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(var(--color-purple-rgb), 0.3);
             position: sticky;
             top: 0;
             z-index: 1000;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
 
         header .container {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 0;  /* Remove extra padding from container in header */
         }
 
         .logo-link {
@@ -102,22 +103,39 @@
             align-items: center;
         }
         .logo-container img {
-            height: 55px;
-            margin-right: 12px;
-            filter: drop-shadow(0 0 8px rgba(var(--color-yellow-rgb), 0.5));
+            height: 75px;  /* Slightly reduced from 100px but still prominent */
+            margin-right: 18px;
+            filter: drop-shadow(0 0 8px rgba(var(--color-yellow-rgb), 0.4));
+            transition: transform 0.3s ease;
         }
+        
+        .logo-link:hover .logo-container img {
+            transform: scale(1.05) rotate(-5deg);
+        }
+
         .logo-text {
-            font-size: 2.5em;
+            font-family: 'Outfit', sans-serif;
+            font-size: 3.8em;  /* Adjusted from 4.5em */
             font-weight: 800;
             color: var(--color-yellow);
-            text-shadow: 1px 1px 0px var(--color-purple), 2px 2px 5px rgba(0,0,0,0.5);
+            text-shadow: 4px 4px 0px var(--color-purple), 
+                        0 0 40px rgba(var(--color-yellow-rgb), 0.4);
             letter-spacing: -1px;
+            transition: color 0.3s ease, text-shadow 0.3s ease;
+        }
+
+        .logo-link:hover .logo-text {
+            color: #ffde4d;
+            text-shadow: 2px 2px 0px var(--color-purple), 
+                         0 0 30px rgba(var(--color-yellow-rgb), 0.4);
         }
 
         nav ul {
             list-style: none;
             display: flex;
             align-items: center;
+            gap: 8px;
+            margin-left: 60px;  /* More space from logo */
         }
         nav ul li {
             margin-left: 20px;
@@ -126,11 +144,12 @@
             text-decoration: none;
             color: var(--color-text);
             font-weight: 600;
-            padding: 10px 18px;
+            padding: 6px 14px;  /* Reduced padding */
             border-radius: 8px;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
-            overflow: hidden;
+            letter-spacing: 0.3px;
+            font-size: 0.95em;  /* Slightly smaller text */
         }
         nav ul li a::before {
             content: '';
@@ -139,10 +158,14 @@
             left: 50%;
             transform: translateX(-50%);
             width: 0;
-            height: 3px;
+            height: 2px;
             background-color: var(--color-yellow);
-            transition: width 0.3s ease;
-            border-radius: 2px;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 4px;
+        }
+        nav ul li a:not(.btn-special):not(.btn-outline):hover {
+            background-color: rgba(var(--color-purple-rgb), 0.1);
+            transform: translateY(-1px);
         }
         nav ul li a:hover::before,
         nav ul li a.active::before {
@@ -157,12 +180,15 @@
             background: linear-gradient(135deg, var(--color-yellow), #ffae00);
             color: var(--color-deep-purple);
             font-weight: 700;
-            box-shadow: 0 4px 10px rgba(var(--color-yellow-rgb), 0.3);
+            padding: 8px 18px;
+            box-shadow: 0 4px 12px rgba(var(--color-yellow-rgb), 0.2);
+            border: none;
+            transform-origin: center;
         }
         nav ul li a.btn-special:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(var(--color-yellow-rgb), 0.4);
-            color: var(--color-deep-purple);
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 6px 15px rgba(var(--color-yellow-rgb), 0.3);
+            filter: brightness(1.05);
         }
         nav ul li a.btn-special .fa-star {
             color: var(--color-deep-purple);
@@ -171,14 +197,16 @@
 
         nav ul li a.btn-outline {
             border: 2px solid var(--color-purple);
-            color: var(--color-purple);
+            color: var(--color-yellow);
+            padding: 6px 16px;
+            font-weight: 600;
+            background: transparent;
         }
         nav ul li a.btn-outline:hover {
             background-color: var(--color-purple);
-            color: var(--color-text);
-        }
-        nav ul li a.btn-outline:hover::before {
-            width: 0;
+            border-color: transparent;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(var(--color-purple-rgb), 0.2);
         }
 
         main {
@@ -304,7 +332,7 @@
             transform: scale(1.1);
         }
         .game-info {
-            padding: 20px;
+            padding: 16px; /* Slightly reduced padding */
             flex-grow: 1;
             display: flex;
             flex-direction: column;
@@ -312,7 +340,7 @@
         .game-info h3 {
             color: var(--color-yellow);
             margin-bottom: 10px;
-            font-size: 1.4em;
+            font-size: 1.3em; /* Slightly smaller title */
             font-weight: 700;
             line-height: 1.3;
         }
@@ -369,7 +397,7 @@
                 <ul>
                     <li><a href="https://example.com" target="_blank">Novo Jogo</a></li>
                     <li><a href="#search-section-anchor">Pesquisar</a></li>
-                    <li><a href="https://original.wariotesco.com" target="_blank" class="btn-outline">Wari Original</a></li>
+                    <li><a href="/original/" target="_blank" class="btn-outline">Wari Original</a></li>
                     <li><a href="https://askmagic.com.br" target="_blank" class="btn-special">
                         <i class="fas fa-star"></i>Magic
                     </a></li>
@@ -390,57 +418,15 @@
 
             <section class="game-grid" id="gameGrid">
                 <!-- Exemplo de Jogo 1 -->
-                <a href="https://example.com/game/pixel-adventure" target="_blank" class="game-card-link">
+                <a href="https://example.com" target="_blank" class="game-card-link">
                     <article class="game-card">
                         <div class="game-image-wrapper">
-                            <img src="https://via.placeholder.com/260/FFD117/2D1A79?text=Pixel+Adventure" alt="Capa Pixel Adventure" class="game-image">
+                            <img src="/x/images/example.png" alt="Capa Pixel Adventure" class="game-image">
                         </div>
                         <div class="game-info">
-                            <h3>Pixel Adventure</h3>
-                            <p><strong>Criador:</strong> Dev Master</p>
-                            <p><strong>Ferramenta:</strong> Godot Engine</p>
-                        </div>
-                    </article>
-                </a>
-
-                <!-- Exemplo de Jogo 2 -->
-                 <a href="https://example.com/game/galaxy-defenders" target="_blank" class="game-card-link">
-                    <article class="game-card">
-                        <div class="game-image-wrapper">
-                            <img src="https://via.placeholder.com/260/752FFF/FFFFFF?text=Galaxy+Defenders" alt="Capa Galaxy Defenders" class="game-image">
-                        </div>
-                        <div class="game-info">
-                            <h3>Galaxy Defenders</h3>
-                            <p><strong>Criador:</strong> Studio Cósmico</p>
-                            <p><strong>Ferramenta:</strong> Unity</p>
-                        </div>
-                    </article>
-                </a>
-
-                <!-- Exemplo de Jogo 3 -->
-                <a href="https://example.com/game/rune-chronicles" target="_blank" class="game-card-link">
-                    <article class="game-card">
-                        <div class="game-image-wrapper">
-                            <img src="https://via.placeholder.com/260/FFD117/752FFF?text=Rune+Chronicles" alt="Capa Rune Chronicles" class="game-image">
-                        </div>
-                        <div class="game-info">
-                            <h3>Rune Chronicles</h3>
-                            <p><strong>Criador:</strong> Fantasy Forge</p>
-                            <p><strong>Ferramenta:</strong> Unreal Engine</p>
-                        </div>
-                    </article>
-                </a>
-                
-                <!-- Exemplo de Jogo 4 (para testar filtro) -->
-                <a href="https://example.com/game/speed-racer-x" target="_blank" class="game-card-link">
-                    <article class="game-card">
-                        <div class="game-image-wrapper">
-                            <img src="https://via.placeholder.com/260/2D1A79/FFD117?text=Speed+Racer+X" alt="Capa Speed Racer X" class="game-image">
-                        </div>
-                        <div class="game-info">
-                            <h3>Speed Racer X</h3>
-                            <p><strong>Criador:</strong> Dev Master</p>
-                            <p><strong>Ferramenta:</strong> Construct 3</p>
+                            <h3>Futebol de Arena</h3>
+                            <p><strong>Criador:</strong> 5511932340617</p>
+                            <p><strong>Feito com:</strong> Gemini 2.5 Pro</p>
                         </div>
                     </article>
                 </a>

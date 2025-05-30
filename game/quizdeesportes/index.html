@@ -1,0 +1,301 @@
+<!DOCTYPE html><html lang="pt-br"><head><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz de Esportes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background-color: white;
+            padding: 2em;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+        }
+        h1 {
+            color: #333;
+        }
+        #start-screen, #quiz-screen {
+            transition: opacity 0.5s ease-in-out;
+        }
+        #start-button {
+            font-size: 1.2em;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #start-button:hover {
+            background-color: #45a049;
+        }
+        #question {
+            font-size: 1.2em;
+            margin-bottom: 1em;
+        }
+        .answer-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background-color: #008CBA;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .answer-btn:hover {
+            background-color: #007B9A;
+        }
+        #result {
+            font-weight: bold;
+            margin-top: 1em;
+        }
+        #progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #ddd;
+            border-radius: 10px;
+            margin-bottom: 1em;
+        }
+        #progress-fill {
+            height: 100%;
+            background-color: #4CAF50;
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.5s ease-in-out;
+        }
+        #progress-text {
+            margin-bottom: 1em;
+            font-style: italic;
+        }
+        @media (max-width: 480px) {
+            .container {
+                padding: 1em;
+            }
+            #start-button, .answer-btn {
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="start-screen">
+            <h1>Quiz de Esportes</h1>
+            <p>Teste seus conhecimentos sobre diversos esportes!</p>
+            <button id="start-button">Iniciar Quiz</button>
+        </div>
+        <div id="quiz-screen" style="display: none;">
+            <div id="progress-bar"><div id="progress-fill"></div></div>
+            <div id="progress-text"></div>
+            <div id="question"></div>
+            <div id="answers"></div>
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const questions = [
+            {
+                question: "Qual país sediou a Copa do Mundo de Futebol de 2022?",
+                answers: ["Brasil", "Rússia", "Qatar", "França"],
+                correct: 2
+            },
+            {
+                question: "Quem é considerado o maior jogador de basquete de todos os tempos?",
+                answers: ["LeBron James", "Michael Jordan", "Kobe Bryant", "Magic Johnson"],
+                correct: 1
+            },
+            {
+                question: "Em qual esporte Usain Bolt se destacou?",
+                answers: ["Natação", "Ciclismo", "Atletismo", "Ginástica"],
+                correct: 2
+            },
+            {
+                question: "Quantos jogadores compõem uma equipe de vôlei em quadra?",
+                answers: ["5", "6", "7", "8"],
+                correct: 1
+            },
+            {
+                question: "Qual é o nome do troféu da Copa do Mundo de Futebol?",
+                answers: ["Taça Jules Rimet", "Taça FIFA", "Taça dos Campeões", "Troféu do Mundo"],
+                correct: 1
+            },
+            {
+                question: "Em que esporte se utiliza um taco e uma bola pequena e dura?",
+                answers: ["Golfe", "Críquete", "Beisebol", "Hóquei"],
+                correct: 2
+            },
+            {
+                question: "Qual é o recorde mundial dos 100 metros rasos masculino?",
+                answers: ["9.58 segundos", "9.63 segundos", "9.69 segundos", "9.74 segundos"],
+                correct: 0
+            },
+            {
+                question: "Em que ano foram realizados os primeiros Jogos Olímpicos modernos?",
+                answers: ["1886", "1896", "1900", "1904"],
+                correct: 1
+            },
+            {
+                question: "Qual é o esporte nacional do Japão?",
+                answers: ["Judô", "Karatê", "Sumô", "Kendo"],
+                correct: 2
+            },
+            {
+                question: "Quem é o maior vencedor de Grand Slams no tênis masculino?",
+                answers: ["Roger Federer", "Rafael Nadal", "Novak Djokovic", "Pete Sampras"],
+                correct: 2
+            },
+            {
+                question: "Qual é a distância de uma maratona em quilômetros?",
+                answers: ["40 km", "42,195 km", "45 km", "50 km"],
+                correct: 1
+            },
+            {
+                question: "Em que esporte se utiliza um disco?",
+                answers: ["Hóquei no gelo", "Curling", "Patinação artística", "Todos os anteriores"],
+                correct: 3
+            },
+            {
+                question: "Qual país ganhou mais medalhas de ouro na história das Olimpíadas?",
+                answers: ["Estados Unidos", "União Soviética", "China", "Alemanha"],
+                correct: 0
+            },
+            {
+                question: "Qual é o nome da competição mais importante do automobilismo?",
+                answers: ["Fórmula 1", "NASCAR", "Rally Dakar", "24 Horas de Le Mans"],
+                correct: 0
+            },
+            {
+                question: "Em que esporte Michael Phelps se tornou o atleta olímpico mais condecorado?",
+                answers: ["Natação", "Atletismo", "Ginástica", "Remo"],
+                correct: 0
+            },
+            {
+                question: "Qual é o único país que participou de todas as Copas do Mundo de Futebol?",
+                answers: ["Alemanha", "Brasil", "Itália", "Argentina"],
+                correct: 1
+            },
+            {
+                question: "Quantos rounds tem uma luta profissional de boxe?",
+                answers: ["10", "12", "15", "20"],
+                correct: 1
+            },
+            {
+                question: "Qual é o esporte mais popular na Índia?",
+                answers: ["Futebol", "Críquete", "Hóquei em campo", "Badminton"],
+                correct: 1
+            },
+            {
+                question: "Quem é conhecido como 'O Rei' no futebol?",
+                answers: ["Cristiano Ronaldo", "Lionel Messi", "Diego Maradona", "Pelé"],
+                correct: 3
+            },
+            {
+                question: "Em que ano o surfe se tornou um esporte olímpico?",
+                answers: ["2016", "2020", "2021", "2024"],
+                correct: 2
+            }
+        ];
+
+        let currentQuestion = 0;
+        let score = 0;
+
+        const startScreen = document.getElementById('start-screen');
+        const quizScreen = document.getElementById('quiz-screen');
+        const startButton = document.getElementById('start-button');
+        const questionElement = document.getElementById('question');
+        const answersElement = document.getElementById('answers');
+        const resultElement = document.getElementById('result');
+        const progressText = document.getElementById('progress-text');
+        const progressFill = document.getElementById('progress-fill');
+
+        startButton.addEventListener('click', startQuiz);
+
+        function startQuiz() {
+            startScreen.style.display = 'none';
+            quizScreen.style.display = 'block';
+            showQuestion();
+        }
+
+        function showQuestion() {
+            if (currentQuestion < questions.length) {
+                const question = questions[currentQuestion];
+                questionElement.textContent = question.question;
+                answersElement.innerHTML = '';
+                updateProgress();
+
+                question.answers.forEach((answer, index) => {
+                    const button = document.createElement('button');
+                    button.textContent = answer;
+                    button.classList.add('answer-btn');
+                    button.addEventListener('click', () => checkAnswer(index));
+                    answersElement.appendChild(button);
+                });
+            } else {
+                showResult();
+            }
+        }
+
+        function checkAnswer(answerIndex) {
+            const question = questions[currentQuestion];
+            if (answerIndex === question.correct) {
+                score++;
+                resultElement.textContent = "Correto!";
+            } else {
+                resultElement.textContent = "Incorreto. A resposta certa era: " + question.answers[question.correct];
+            }
+
+            currentQuestion++;
+            setTimeout(showQuestion, 1500);
+        }
+
+        function showResult() {
+            quizScreen.innerHTML = `
+                <h2>Quiz Concluído!</h2>
+                <p>Você acertou ${score} de ${questions.length} perguntas.</p>
+                <button onclick="location.reload()">Jogar Novamente</button>
+            `;
+        }
+
+        function updateProgress() {
+            const progress = ((currentQuestion + 1) / questions.length) * 100;
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = `Pergunta ${currentQuestion + 1} de ${questions.length}`;
+        }
+
+        // Verificar se o localStorage está disponível
+        function isLocalStorageAvailable() {
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                return true;
+            } catch(e) {
+                return false;
+            }
+        }
+
+        // Se o localStorage estiver disponível, podemos usá-lo para salvar o progresso
+        if (isLocalStorageAvailable()) {
+            // Aqui você pode adicionar lógica para salvar e carregar o progresso
+            console.log('localStorage está disponível para uso');
+        } else {
+            console.log('localStorage não está disponível');
+        }
+    </script>
+
+
+</body></html>

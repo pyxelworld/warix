@@ -1,0 +1,438 @@
+<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .game-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 30px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .tube {
+            width: 50px;
+            height: 250px;
+            border: 2px solid #333;
+            border-radius: 0 0 20px 20px;
+            display: flex;
+            flex-direction: column-reverse;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+        .ball {
+            width: 100%;
+            height: 50px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .ball::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: inherit;
+            filter: brightness(1.2);
+            border-radius: 50% 50% 0 0;
+        }
+        .selected {
+            transform: translateY(-10px);
+            box-shadow: 0 5px 15px rgba(255,255,255,0.3);
+        }
+        .liquid {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            pointer-events: none;
+            z-index: 1000;
+            transition: all 0.6s cubic-bezier(0.21, 0.53, 0.29, 0.8);
+        }
+        .liquid::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: inherit;
+            border-radius: 50%;
+            transform-origin: center bottom;
+            animation: liquidMove 0.6s ease-in-out;
+        }
+        @keyframes liquidMove {
+            0% {
+                border-radius: 50%;
+                transform: scaleY(1);
+            }
+            50% {
+                border-radius: 40% 40% 25% 25%;
+                transform: scaleY(1.2);
+            }
+            100% {
+                border-radius: 50%;
+                transform: scaleY(1);
+            }
+        }
+        .disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        body {
+            background: #222;
+            font-family: Arial;
+            text-align: center;
+        }
+        .controls {
+            margin-top: 20px;
+            color: white;
+        }
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #444;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        button:not(.disabled):hover {
+            background: #555;
+            transform: scale(1.05);
+        }
+        button.disabled {
+            background: #333;
+            cursor: not-allowed;
+        }
+        #message {
+            color: white;
+            margin-top: 20px;
+            height: 20px;
+            font-size: 18px;
+        }
+        .stats {
+            color: white;
+            margin-top: 10px;
+            font-size: 18px;
+        }
+        .screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: white;
+            font-size: 24px;
+            z-index: 2000;
+            display: none;
+        }
+        .screen.visible {
+            display: flex;
+        }
+    </style>
+</head>
+<body>
+    <div id="startScreen" class="screen visible">
+        <div>Bem-vindo ao Jogo!</div>
+        <button onclick="startGame()">Iniciar Jogo</button>
+    </div>
+
+    <div id="winScreen" class="screen">
+        <div>Você passou de nível!</div>
+        <button onclick="continueGame()">Continuar</button>
+    </div>
+
+    <div class="stats">
+        <span>Nível: <span id="level">1</span></span> |
+        <span>Movimentos: <span id="moves">0</span></span>
+    </div>
+    <div class="game-container" id="gameContainer"></div>
+    <div class="controls">
+        <button onclick="resetGame()">Reiniciar</button>
+        <button id="nextLevelBtn" onclick="nextLevel()" class="disabled">Próximo Nível</button>
+    </div>
+    <div id="message"></div>
+
+    <script>
+        const levelConfigs = [
+            { colors: ['red', 'blue', 'green', 'yellow'], numTubes: 6, tubeHeight: 4 },
+            { colors: ['red', 'blue', 'green', 'yellow', 'purple'], numTubes: 7, tubeHeight: 4 },
+            { colors: ['red', 'blue', 'green', 'yellow', 'purple', 'orange'], numTubes: 8, tubeHeight: 4 },
+            { colors: ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink'], numTubes: 9, tubeHeight: 5 },
+            { colors: ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'brown'], numTubes: 10, tubeHeight: 5 },
+            { colors: ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'brown', 'cyan'], numTubes: 11, tubeHeight: 6 }
+        ];
+
+        let currentLevel = 0;
+        let moves = 0;
+        let tubes = [];
+        let selectedTube = null;
+        let isAnimating = false;
+        let hasLocalStorage = false;
+        let completedLevels = [];
+
+        // Verificar disponibilidade do localStorage
+        function checkLocalStorage() {
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                hasLocalStorage = true;
+            } catch(e) {
+                hasLocalStorage = false;
+            }
+        }
+
+        // Salvar progresso
+        function saveProgress() {
+            if (!hasLocalStorage) return;
+            
+            const gameState = {
+                currentLevel,
+                moves,
+                tubes,
+                completedLevels
+            };
+            
+            localStorage.setItem('ballSortPuzzle', JSON.stringify(gameState));
+        }
+
+        // Carregar progresso
+        function loadProgress() {
+            if (!hasLocalStorage) return false;
+            
+            const savedState = localStorage.getItem('ballSortPuzzle');
+            if (!savedState) return false;
+            
+            const gameState = JSON.parse(savedState);
+            currentLevel = gameState.currentLevel;
+            moves = gameState.moves;
+            tubes = gameState.tubes;
+            completedLevels = gameState.completedLevels;
+            
+            return true;
+        }
+
+        function createTubes() {
+            const config = levelConfigs[currentLevel];
+            const gameContainer = document.getElementById('gameContainer');
+            gameContainer.innerHTML = '';
+            tubes = [];
+            moves = 0;
+            updateStats();
+
+            let balls = [];
+            config.colors.forEach(color => {
+                for(let i = 0; i < config.tubeHeight; i++) {
+                    balls.push(color);
+                }
+            });
+
+            balls = balls.sort(() => Math.random() - 0.5);
+
+            for(let i = 0; i < config.numTubes; i++) {
+                if(i < config.numTubes - 2) {
+                    tubes[i] = balls.slice(i * config.tubeHeight, (i + 1) * config.tubeHeight);
+                } else {
+                    tubes[i] = [];
+                }
+            }
+
+            tubes.forEach((tube, i) => {
+                const tubeElement = document.createElement('div');
+                tubeElement.className = 'tube';
+                tubeElement.onclick = () => tubeClick(i);
+                gameContainer.appendChild(tubeElement);
+                updateTubeView(i);
+            });
+        }
+
+        function updateTubeView(tubeIndex) {
+            const tube = document.getElementsByClassName('tube')[tubeIndex];
+            tube.innerHTML = '';
+            tubes[tubeIndex].forEach(color => {
+                const ball = document.createElement('div');
+                ball.className = 'ball';
+                ball.style.backgroundColor = color;
+                tube.appendChild(ball);
+            });
+        }
+
+        function tubeClick(tubeIndex) {
+            if (isAnimating) return;
+
+            if(selectedTube === null) {
+                if(tubes[tubeIndex].length > 0) {
+                    selectedTube = tubeIndex;
+                    document.getElementsByClassName('tube')[tubeIndex].classList.add('selected');
+                }
+            } else {
+                if(selectedTube !== tubeIndex) {
+                    if(isValidMove(selectedTube, tubeIndex)) {
+                        isAnimating = true;
+                        moveBalls(selectedTube, tubeIndex);
+                        document.getElementsByClassName('tube')[selectedTube].classList.remove('selected');
+                        selectedTube = null;
+                    } else {
+                        document.getElementsByClassName('tube')[selectedTube].classList.remove('selected');
+                        selectedTube = null;
+                    }
+                } else {
+                    document.getElementsByClassName('tube')[selectedTube].classList.remove('selected');
+                    selectedTube = null;
+                }
+            }
+        }
+
+        function moveBalls(fromTube, toTube) {
+            const sameColorBalls = [];
+            const color = tubes[fromTube][tubes[fromTube].length - 1];
+            
+            // Encontrar todas as bolas da mesma cor no topo
+            while (tubes[fromTube].length > 0 && 
+                   tubes[fromTube][tubes[fromTube].length - 1] === color && 
+                   (tubes[toTube].length === 0 || tubes[toTube][tubes[toTube].length - 1] === color) &&
+                   tubes[toTube].length < levelConfigs[currentLevel].tubeHeight) {
+                sameColorBalls.push(tubes[fromTube].pop());
+            }
+
+            // Animar e mover cada bola
+            sameColorBalls.forEach((ball, index) => {
+                setTimeout(() => {
+                    animateLiquidMovement(fromTube, toTube, ball, index === sameColorBalls.length - 1);
+                    tubes[toTube].push(ball);
+                    updateTubeView(fromTube);
+                    updateTubeView(toTube);
+                    
+                    if (index === sameColorBalls.length - 1) {
+                        isAnimating = false;
+                        if (checkWin()) {
+                            handleWin();
+                        }
+                    }
+                }, index * 200);
+            });
+
+            moves++;
+            updateStats();
+            saveProgress();
+        }
+
+        function animateLiquidMovement(fromTube, toTube, color, isLast) {
+            const liquid = document.createElement('div');
+            liquid.className = 'liquid';
+            liquid.style.backgroundColor = color;
+            document.body.appendChild(liquid);
+
+            const fromRect = document.getElementsByClassName('tube')[fromTube].getBoundingClientRect();
+            const toRect = document.getElementsByClassName('tube')[toTube].getBoundingClientRect();
+            
+            liquid.style.left = fromRect.left + 'px';
+            liquid.style.top = (fromRect.top + fromRect.height - 50 * (tubes[fromTube].length + 1)) + 'px';
+
+            requestAnimationFrame(() => {
+                liquid.style.left = toRect.left + 'px';
+                liquid.style.top = (toRect.top + toRect.height - 50 * (tubes[toTube].length + 1)) + 'px';
+            });
+
+            setTimeout(() => {
+                liquid.remove();
+            }, 600);
+        }
+
+        function isValidMove(from, to) {
+            const config = levelConfigs[currentLevel];
+            if(tubes[from].length === 0) return false;
+            if(tubes[to].length >= config.tubeHeight) return false;
+            
+            const topBallColor = tubes[from][tubes[from].length - 1];
+            return tubes[to].length === 0 || tubes[to][tubes[to].length - 1] === topBallColor;
+        }
+
+        function checkWin() {
+            const config = levelConfigs[currentLevel];
+            return tubes.every(tube => {
+                if(tube.length === 0) return true;
+                if(tube.length !== config.tubeHeight) return false;
+                return tube.every(ball => ball === tube[0]);
+            });
+        }
+
+        function handleWin() {
+            if (!completedLevels.includes(currentLevel)) {
+                completedLevels.push(currentLevel);
+            }
+            document.getElementById('winScreen').classList.add('visible');
+            saveProgress();
+        }
+
+        function updateStats() {
+            document.getElementById('level').textContent = currentLevel + 1;
+            document.getElementById('moves').textContent = moves;
+        }
+
+        function resetGame() {
+            document.getElementById('message').textContent = '';
+            document.getElementById('nextLevelBtn').classList.add('disabled');
+            createTubes();
+            saveProgress();
+        }
+
+        function nextLevel() {
+            if (!completedLevels.includes(currentLevel)) return;
+            
+            if(currentLevel < levelConfigs.length - 1) {
+                currentLevel++;
+                document.getElementById('message').textContent = '';
+                document.getElementById('nextLevelBtn').classList.add('disabled');
+                createTubes();
+                saveProgress();
+            } else {
+                document.getElementById('message').textContent = 'Você completou todos os níveis!';
+            }
+        }
+
+        function startGame() {
+            document.getElementById('startScreen').classList.remove('visible');
+            if (!loadProgress()) {
+                createTubes();
+            } else {
+                updateTubes();
+                updateStats();
+            }
+        }
+
+        function continueGame() {
+            document.getElementById('winScreen').classList.remove('visible');
+            nextLevel();
+        }
+
+        function updateTubes() {
+            const gameContainer = document.getElementById('gameContainer');
+            gameContainer.innerHTML = '';
+            tubes.forEach((tube, i) => {
+                const tubeElement = document.createElement('div');
+                tubeElement.className = 'tube';
+                tubeElement.onclick = () => tubeClick(i);
+                gameContainer.appendChild(tubeElement);
+                updateTubeView(i);
+            });
+        }
+
+        // Inicialização
+        checkLocalStorage();
+    </script>
+</body>
+</html>

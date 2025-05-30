@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookie Clicker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0e0d0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #game-container {
+            background-color: #fff5e6;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        #cookie {
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle at 30% 30%, #e6c79c, #c0956c);
+            border-radius: 50%;
+            margin: 20px auto;
+            cursor: pointer;
+            box-shadow: 
+                inset 0 0 20px #a67b5b,
+                0 0 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.1s;
+            position: relative;
+            overflow: hidden;
+        }
+        #cookie:active {
+            transform: scale(0.95);
+        }
+        #cookie::before,
+        #cookie::after,
+        #cookie span {
+            content: '';
+            position: absolute;
+            background-color: #3c1f0e;
+            border-radius: 50%;
+        }
+        #cookie::before {
+            width: 20px;
+            height: 20px;
+            top: 25%;
+            left: 20%;
+        }
+        #cookie::after {
+            width: 15px;
+            height: 15px;
+            bottom: 30%;
+            right: 20%;
+        }
+        #cookie span {
+            display: block;
+        }
+        #cookie span:nth-child(1) {
+            width: 25px;
+            height: 25px;
+            top: 50%;
+            left: 30%;
+        }
+        #cookie span:nth-child(2) {
+            width: 18px;
+            height: 18px;
+            top: 15%;
+            right: 30%;
+        }
+        #cookie span:nth-child(3) {
+            width: 22px;
+            height: 22px;
+            bottom: 15%;
+            left: 40%;
+        }
+        #cookie-count {
+            font-size: 24px;
+            font-weight: bold;
+            color: #8b4513;
+        }
+        .upgrade-btn {
+            background-color: #8b4513;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        .upgrade-btn:hover {
+            background-color: #a0522d;
+        }
+        .upgrade-btn:active {
+            transform: scale(0.95);
+        }
+        .upgrade-btn:disabled {
+            background-color: #d2b48c;
+            cursor: not-allowed;
+        }
+        #upgrades {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+        #achievement {
+            margin-top: 20px;
+            font-style: italic;
+            color: #8b4513;
+            height: 20px;
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>Cookie Clicker</h1>
+        <div id="cookie-count">0 Cookies</div>
+        <div id="cookie">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+        <div id="upgrades">
+            <div>
+                <button id="cpc-upgrade" class="upgrade-btn">Upgrade Clicks</button>
+                <div id="cpc-level">Level: 1</div>
+            </div>
+            <div>
+                <button id="auto-upgrade" class="upgrade-btn">Upgrade Auto Clicker</button>
+                <div id="auto-level">Level: 0</div>
+            </div>
+        </div>
+        <div id="achievement"></div>
+    </div>
+
+    <script>
+        class Game {
+            constructor() {
+                this.cookies = 0;
+                this.cpcLevel = 1;
+                this.autoLevel = 0;
+                this.cpcCost = 10;
+                this.autoCost = 100;
+                this.cpcMultiplier = 1;
+                this.autoMultiplier = 1;
+
+                this.cookieElem = document.getElementById('cookie');
+                this.countElem = document.getElementById('cookie-count');
+                this.cpcBtn = document.getElementById('cpc-upgrade');
+                this.autoBtn = document.getElementById('auto-upgrade');
+                this.cpcLevelElem = document.getElementById('cpc-level');
+                this.autoLevelElem = document.getElementById('auto-level');
+                this.achievementElem = document.getElementById('achievement');
+
+                this.initializeGame();
+            }
+
+            initializeGame() {
+                this.loadGame();
+                this.updateDisplay();
+                this.startAutoClicker();
+
+                this.cookieElem.addEventListener('click', () => this.clickCookie());
+                this.cpcBtn.addEventListener('click', () => this.upgradeCPC());
+                this.autoBtn.addEventListener('click', () => this.upgradeAuto());
+
+                setInterval(() => this.saveGame(), 10000);
+            }
+
+            clickCookie() {
+                this.cookies += this.cpcLevel * this.cpcMultiplier;
+                this.updateDisplay();
+                this.checkAchievements();
+            }
+
+            upgradeCPC() {
+                if (this.cookies >= this.cpcCost) {
+                    this.cookies -= this.cpcCost;
+                    this.cpcLevel++;
+                    this.cpcCost = Math.floor(this.cpcCost * 1.5);
+                    if (this.cpcLevel % 10 === 0) {
+                        this.cpcMultiplier *= 2;
+                        this.showAchievement(`Clicks evolved! Now x${this.cpcMultiplier}`);
+                    }
+                    this.updateDisplay();
+                    this.animateUpgrade(this.cpcBtn);
+                }
+            }
+
+            upgradeAuto() {
+                if (this.cookies >= this.autoCost) {
+                    this.cookies -= this.autoCost;
+                    this.autoLevel++;
+                    this.autoCost = Math.floor(this.autoCost * 2);
+                    if (this.autoLevel % 5 === 0) {
+                        this.autoMultiplier *= 2;
+                        this.showAchievement(`Auto Clicker evolved! Now x${this.autoMultiplier}`);
+                    }
+                    this.updateDisplay();
+                    this.animateUpgrade(this.autoBtn);
+                }
+            }
+
+            startAutoClicker() {
+                setInterval(() => {
+                    this.cookies += this.autoLevel * this.autoMultiplier;
+                    this.updateDisplay();
+                    this.checkAchievements();
+                }, 1000);
+            }
+
+            updateDisplay() {
+                this.countElem.textContent = `${Math.floor(this.cookies)} Cookies`;
+                this.cpcBtn.textContent = `Upgrade Clicks (Cost: ${this.cpcCost})`;
+                this.autoBtn.textContent = `Upgrade Auto Clicker (Cost: ${this.autoCost})`;
+                this.cpcLevelElem.textContent = `Level: ${this.cpcLevel} (x${this.cpcMultiplier})`;
+                this.autoLevelElem.textContent = `Level: ${this.autoLevel} (x${this.autoMultiplier})`;
+                
+                this.cpcBtn.disabled = this.cookies < this.cpcCost;
+                this.autoBtn.disabled = this.cookies < this.autoCost;
+            }
+
+            saveGame() {
+                const gameState = {
+                    cookies: this.cookies,
+                    cpcLevel: this.cpcLevel,
+                    autoLevel: this.autoLevel,
+                    cpcCost: this.cpcCost,
+                    autoCost: this.autoCost,
+                    cpcMultiplier: this.cpcMultiplier,
+                    autoMultiplier: this.autoMultiplier
+                };
+
+                try {
+                    localStorage.setItem('cookieClickerState', JSON.stringify(gameState));
+                } catch (e) {
+                    console.error('Failed to save game state:', e);
+                }
+            }
+
+            loadGame() {
+                try {
+                    const savedState = localStorage.getItem('cookieClickerState');
+                    if (savedState) {
+                        const gameState = JSON.parse(savedState);
+                        Object.assign(this, gameState);
+                    }
+                } catch (e) {
+                    console.error('Failed to load game state:', e);
+                }
+            }
+
+            animateUpgrade(button) {
+                button.style.transform = 'scale(1.1)';
+                setTimeout(() => {
+                    button.style.transform = 'scale(1)';
+                }, 100);
+            }
+
+            showAchievement(message) {
+                this.achievementElem.textContent = message;
+                this.achievementElem.style.animation = 'none';
+                setTimeout(() => {
+                    this.achievementElem.style.animation = 'fadeOut 2s forwards';
+                }, 2000);
+            }
+
+            checkAchievements() {
+                const milestones = [100, 1000, 10000, 100000, 1000000];
+                for (let milestone of milestones) {
+                    if (this.cookies >= milestone && this.cookies - milestone < 10) {
+                        this.showAchievement(`Wow! You've reached ${milestone} cookies!`);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Error handling
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error('An error occurred:', message, 'at', source, lineno, colno);
+            return true; // Prevents the firing of the default event handler
+        };
+
+        // Start the game
+        try {
+            new Game();
+        } catch (e) {
+            console.error('Failed to initialize the game:', e);
+        }
+    </script>
+</body>
+</html>

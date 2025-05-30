@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced River Raid</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+        }
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Game variables
+        let gameState = 'start';
+        let score = 0;
+        let fuel = 100;
+        let lives = 3;
+        let highScore = 0;
+        let difficulty = 1;
+        let screenShake = 0;
+
+        // Colors
+        const COLORS = {
+            SKY: '#87CEEB',
+            RIVER: '#1E90FF',
+            LAND: '#228B22',
+            PLAYER: '#FFD700',
+            ENEMY: '#FF4500',
+            UI: '#FFFFFF'
+        };
+
+        // Player
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height - 100,
+            width: 40,
+            height: 50,
+            speed: 5
+        };
+
+        // Game objects
+        const enemies = [];
+        const enemyTypes = ['helicopter', 'ship', 'fuel', 'bridge'];
+        const projectiles = [];
+        const particles = [];
+
+        // River
+        const river = {
+            minWidth: canvas.width * 0.3,
+            maxWidth: canvas.width * 0.7,
+            leftBank: canvas.width * 0.2,
+            rightBank: canvas.width * 0.8,
+            segments: []
+        };
+
+        // Input handling
+        const keys = {};
+        let touchStartX = 0;
+        let lastTouchX = 0;
+
+        document.addEventListener('keydown', (e) => keys[e.code] = true);
+        document.addEventListener('keyup', (e) => keys[e.code] = false);
+
+        canvas.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            lastTouchX = touchStartX;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            const touchX = e.touches[0].clientX;
+            const dx = touchX - lastTouchX;
+            player.x += dx * 0.5;
+            lastTouchX = touchX;
+            e.preventDefault();
+        });
+
+        canvas.addEventListener('click', (e) => {
+            if (gameState === 'playing') {
+                fireProjectile();
+            } else if (gameState === 'start' || gameState === 'gameOver') {
+                gameState = 'playing';
+                resetGame();
+            }
+        });
+
+        // Sound effects
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(frequency, duration, type = 'sine') {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        function fireProjectile() {
+            projectiles.push({
+                x: player.x + player.width / 2,
+                y: player.y,
+                width: 4,
+                height: 15,
+                speed: 12
+            });
+            playSound(880, 0.1, 'square');
+        }
+
+        function createParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 5,
+                    vy: (Math.random() - 0.5) * 5,
+                    radius: Math.random() * 3 + 1,
+                    color: color,
+                    life: 30
+                });
+            }
+        }
+
+        function drawPlayer() {
+            ctx.fillStyle = COLORS.PLAYER;
+            ctx.beginPath();
+            ctx.moveTo(player.x + player.width / 2, player.y);
+            ctx.lineTo(player.x, player.y + player.height);
+            ctx.lineTo(player.x + player.width, player.y + player.height);
+            ctx.closePath();
+            ctx.fill();
+
+            // Wings
+            ctx.fillRect(player.x - 15, player.y + player.height - 20, player.width + 30, 7);
+        }
+
+        function drawEnemy(enemy) {
+            ctx.fillStyle = COLORS.ENEMY;
+            if (enemy.type === 'helicopter') {
+                ctx.beginPath();
+                ctx.ellipse(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemy.width / 2, enemy.height / 3, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillRect(enemy.x, enemy.y + enemy.height / 2, enemy.width, enemy.height / 4);
+                // Rotor
+                ctx.fillRect(enemy.x - 10, enemy.y, enemy.width + 20, 3);
+            } else if (enemy.type === 'ship') {
+                ctx.beginPath();
+                ctx.moveTo(enemy.x, enemy.y + enemy.height);
+                ctx.lineTo(enemy.x + enemy.width / 2, enemy.y);
+                ctx.lineTo(enemy.x + enemy.width, enemy.y + enemy.height);
+                ctx.closePath();
+                ctx.fill();
+            } else if (enemy.type === 'fuel') {
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                ctx.fillStyle = '#000';
+                ctx.font = '12px Arial';
+                ctx.fillText('FUEL', enemy.x + 5, enemy.y + enemy.height / 2 + 5);
+            } else if (enemy.type === 'bridge') {
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                // Bridge supports
+                ctx.fillRect(enemy.x, enemy.y, 10, enemy.height);
+                ctx.fillRect(enemy.x + enemy.width - 10, enemy.y, 10, enemy.height);
+            }
+        }
+
+        function drawProjectile(proj) {
+            ctx.fillStyle = '#FFFF00';
+            ctx.fillRect(proj.x, proj.y, proj.width, proj.height);
+        }
+
+        function drawRiver() {
+            ctx.fillStyle = COLORS.RIVER;
+            ctx.fillRect(river.leftBank, 0, river.rightBank - river.leftBank, canvas.height);
+
+            // Draw river segments
+            ctx.fillStyle = COLORS.LAND;
+            river.segments.forEach(segment => {
+                ctx.fillRect(0, segment.y, segment.left, canvas.height);
+                ctx.fillRect(segment.right, segment.y, canvas.width - segment.right, canvas.height);
+            });
+        }
+
+        function drawHUD() {
+            ctx.fillStyle = COLORS.UI;
+            ctx.font = 'bold 20px Arial';
+            ctx.fillText(`Score: ${score}`, 10, 30);
+            ctx.fillText(`High Score: ${highScore}`, 10, 60);
+            ctx.fillText(`Lives: ${lives}`, 10, 90);
+
+            // Fuel gauge
+            ctx.fillStyle = '#333';
+            ctx.fillRect(canvas.width - 210, 10, 200, 20);
+            ctx.fillStyle = fuel > 20 ? '#0F0' : '#F00';
+            ctx.fillRect(canvas.width - 210, 10, fuel * 2, 20);
+            ctx.fillStyle = COLORS.UI;
+            ctx.fillText(`Fuel: ${Math.round(fuel)}%`, canvas.width - 200, 50);
+        }
+
+        function updateRiver() {
+            river.segments.forEach(segment => {
+                segment.y += 2 + difficulty;
+            });
+
+            river.segments = river.segments.filter(segment => segment.y < canvas.height);
+
+            if (river.segments.length === 0 || river.segments[0].y > 0) {
+                const lastSegment = river.segments[0] || { left: river.leftBank, right: river.rightBank };
+                const newLeft = Math.max(0, Math.min(lastSegment.left + (Math.random() - 0.5) * 50, canvas.width - river.minWidth));
+                const newRight = Math.min(canvas.width, Math.max(newLeft + river.minWidth, lastSegment.right + (Math.random() - 0.5) * 50));
+                river.segments.unshift({ y: -100, left: newLeft, right: newRight });
+            }
+
+            if (river.segments.length > 0) {
+                river.leftBank = river.segments[0].left;
+                river.rightBank = river.segments[0].right;
+            }
+        }
+
+        function update() {
+            if (gameState === 'playing') {
+                if (keys['ArrowLeft'] || keys['KeyA']) player.x -= player.speed;
+                if (keys['ArrowRight'] || keys['KeyD']) player.x += player.speed;
+
+                player.x = Math.max(river.leftBank, Math.min(player.x, river.rightBank - player.width));
+
+                updateRiver();
+
+                projectiles.forEach((proj, index) => {
+                    proj.y -= proj.speed;
+                    if (proj.y + proj.height < 0) {
+                        projectiles.splice(index, 1);
+                    }
+                });
+
+                enemies.forEach((enemy, index) => {
+                    enemy.y += enemy.speed + difficulty * 0.5;
+                    if (enemy.y > canvas.height) {
+                        enemies.splice(index, 1);
+                    }
+                });
+
+                if (Math.random() < 0.01 + difficulty * 0.005) {
+                    const type = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+                    enemies.push({
+                        x: Math.random() * (river.rightBank - river.leftBank - 60) + river.leftBank,
+                        y: -60,
+                        width: 60,
+                        height: 60,
+                        type: type,
+                        speed: 1 + Math.random() * 2
+                    });
+                }
+
+                enemies.forEach((enemy, eIndex) => {
+                    projectiles.forEach((proj, pIndex) => {
+                        if (
+                            proj.x < enemy.x + enemy.width &&
+                            proj.x + proj.width > enemy.x &&
+                            proj.y < enemy.y + enemy.height &&
+                            proj.y + proj.height > enemy.y
+                        ) {
+                            if (enemy.type === 'fuel') {
+                                fuel = Math.min(fuel + 20, 100);
+                                playSound(440, 0.2, 'sine');
+                            } else if (enemy.type !== 'bridge') {
+                                enemies.splice(eIndex, 1);
+                                score += 10;
+                                createParticles(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, COLORS.ENEMY, 20);
+                                playSound(220, 0.2, 'sawtooth');
+                                screenShake = 5;
+                            }
+                            projectiles.splice(pIndex, 1);
+                        }
+                    });
+
+                    if (
+                        player.x < enemy.x + enemy.width &&
+                        player.x + player.width > enemy.x &&
+                        player.y < enemy.y + enemy.height &&
+                        player.y + player.height > enemy.y
+                    ) {
+                        if (enemy.type === 'fuel') {
+                            fuel = Math.min(fuel + 20, 100);
+                            enemies.splice(eIndex, 1);
+                            playSound(440, 0.2, 'sine');
+                        } else {
+                            lives--;
+                            createParticles(player.x + player.width / 2, player.y + player.height / 2, COLORS.PLAYER, 30);
+                            playSound(110, 0.3, 'square');
+                            screenShake = 10;
+                            if (lives <= 0) {
+                                gameState = 'gameOver';
+                            } else {
+                                player.x = canvas.width / 2;
+                                player.y = canvas.height - 100;
+                            }
+                        }
+                    }
+                });
+
+                fuel -= 0.1 + difficulty * 0.05;
+                if (fuel <= 0) {
+                    gameState = 'gameOver';
+                }
+
+                if (player.x < river.leftBank || player.x + player.width > river.rightBank) {
+                    lives--;
+                    createParticles(player.x + player.width / 2, player.y + player.height / 2, COLORS.PLAYER, 30);
+                    playSound(110, 0.3, 'square');
+                    screenShake = 10;
+                    if (lives <= 0) {
+                        gameState = 'gameOver';
+                    } else {
+                        player.x = canvas.width / 2;
+                    }
+                }
+
+                particles.forEach((particle, index) => {
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+                    particle.life--;
+                    if (particle.life <= 0) {
+                        particles.splice(index, 1);
+                    }
+                });
+
+                score += 1;
+                if (score > highScore) {
+                    highScore = score;
+                }
+
+                difficulty = Math.min(5, 1 + Math.floor(score / 1000) * 0.5);
+            }
+
+            if (screenShake > 0) {
+                screenShake--;
+            }
+        }
+
+        function draw() {
+            ctx.save();
+            if (screenShake > 0) {
+                ctx.translate(Math.random() * screenShake - screenShake / 2, Math.random() * screenShake - screenShake / 2);
+            }
+
+            ctx.fillStyle = COLORS.SKY;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawRiver();
+            drawPlayer();
+
+            enemies.forEach(drawEnemy);
+            projectiles.forEach(drawProjectile);
+
+            particles.forEach(particle => {
+                ctx.fillStyle = particle.color;
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            drawHUD();
+
+            if (gameState === 'start') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = COLORS.UI;
+                ctx.font = 'bold 40px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('River Raid', canvas.width / 2, canvas.height / 2 - 40);
+                ctx.font = '20px Arial';
+                ctx.fillText('Click to start', canvas.width / 2, canvas.height / 2 + 40);
+            } else if (gameState === 'gameOver') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = COLORS.UI;
+                ctx.font = 'bold 40px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 60);
+                ctx.font = '20px Arial';
+                ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 - 20);
+                ctx.fillText(`High Score: ${highScore}`, canvas.width / 2, canvas.height / 2 + 20);
+                ctx.fillText('Click to restart', canvas.width / 2, canvas.height / 2 + 60);
+            }
+
+            ctx.restore();
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function resetGame() {
+            score = 0;
+            fuel = 100;
+            lives = 3;
+            difficulty = 1;
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 100;
+            enemies.length = 0;
+            projectiles.length = 0;
+            particles.length = 0;
+            river.segments = [];
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>

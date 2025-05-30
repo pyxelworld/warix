@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --text-color: #e0e0e0;
+            --board-light: #78a6c8;
+            --board-dark: #326789;
+            --highlight: #e94560;
+        }
+        body {
+            font-family: 'Roboto', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+        #game-container {
+            display: flex;
+            gap: 20px;
+        }
+        #board-container {
+            width: 400px;
+            height: 400px;
+            position: relative;
+        }
+        #chessboard {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            border: 2px solid var(--text-color);
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+        .square {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.5em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .light {
+            background-color: var(--board-light);
+        }
+        .dark {
+            background-color: var(--board-dark);
+        }
+        .highlight {
+            box-shadow: inset 0 0 0 3px var(--highlight);
+        }
+        .possible-move::after {
+            content: '';
+            width: 15px;
+            height: 15px;
+            background-color: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            position: absolute;
+        }
+        #side-panel {
+            width: 200px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        #timer, #score, #game-mode, #difficulty {
+            background: linear-gradient(145deg, #1e1e35, #23233f);
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        #moves-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        #moves {
+            flex-grow: 1;
+            overflow-y: auto;
+            background: linear-gradient(145deg, #1e1e35, #23233f);
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-height: 200px;
+            transition: max-height 0.3s ease;
+        }
+        #moves.collapsed {
+            max-height: 60px;
+        }
+        .move-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            padding: 5px;
+            background-color: rgba(255,255,255,0.05);
+            border-radius: 5px;
+        }
+        #moves.collapsed .move-item:not(:nth-last-child(-n+3)) {
+            display: none;
+        }
+        button, select {
+            background: linear-gradient(145deg, #e94560, #d13d54);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        button:hover, select:hover {
+            background: linear-gradient(145deg, #d13d54, #e94560);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(233,69,96,0.3);
+        }
+        .computer-move {
+            animation: pulse 1s;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="board-container">
+            <div id="chessboard"></div>
+        </div>
+        <div id="side-panel">
+            <div id="timer">
+                <div>Brancas: <span id="white-timer">10:00</span></div>
+                <div>Pretas: <span id="black-timer">10:00</span></div>
+            </div>
+            <div id="score">
+                <div>Brancas: <span id="white-score">0</span></div>
+                <div>Pretas: <span id="black-score">0</span></div>
+            </div>
+            <div id="game-mode">
+                Modo: <span id="mode-display">2 Jogadores</span>
+            </div>
+            <div id="difficulty" style="display: none;">
+                Dificuldade: 
+                <select id="difficulty-select">
+                    <option value="easy">Fácil</option>
+                    <option value="medium" selected>Médio</option>
+                    <option value="hard">Difícil</option>
+                </select>
+            </div>
+            <div id="moves-container">
+                <button id="toggleMoves">Mostrar/Ocultar Movimentos</button>
+                <div id="moves"></div>
+            </div>
+            <button id="undo">Desfazer</button>
+            <button id="newGame">Novo Jogo</button>
+            <button id="toggleMode">Trocar Modo</button>
+        </div>
+    </div>
+
+    <script>
+        const pieceValues = {
+            'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0
+        };
+
+        const pieceUnicode = {
+            'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
+            'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
+        };
+
+        let board = null;
+        let game = new Chess();
+        let selectedSquare = null;
+        let moveHistory = [];
+        let whiteTimer = 600; // 10 minutes in seconds
+        let blackTimer = 600;
+        let timerInterval;
+        let whiteScore = 0;
+        let blackScore = 0;
+        let isComputerMode = false;
+        let computerDifficulty = 'medium';
+
+        function createBoard() {
+            const chessboard = document.getElementById('chessboard');
+            chessboard.innerHTML = '';
+            for (let i = 0; i < 64; i++) {
+                const square = document.createElement('div');
+                square.classList.add('square');
+                square.classList.add((i + Math.floor(i / 8)) % 2 === 0 ? 'light' : 'dark');
+                square.dataset.square = String.fromCharCode(97 + (i % 8)) + (8 - Math.floor(i / 8));
+                square.addEventListener('click', () => handleSquareClick(square));
+                chessboard.appendChild(square);
+            }
+            updateBoard();
+        }
+
+        function updateBoard() {
+            const squares = document.querySelectorAll('.square');
+            squares.forEach(square => {
+                const piece = game.get(square.dataset.square);
+                square.textContent = piece ? pieceUnicode[piece.type.toUpperCase()] : '';
+                square.style.color = piece && piece.color === 'w' ? 'white' : 'black';
+            });
+        }
+
+        function handleSquareClick(square) {
+            if (isComputerMode && game.turn() === 'b') return; // Prevent moves when it's computer's turn
+
+            if (selectedSquare) {
+                const move = game.move({
+                    from: selectedSquare.dataset.square,
+                    to: square.dataset.square,
+                    promotion: 'q'
+                });
+
+                if (move) {
+                    updateBoard();
+                    updateMoveHistory(move);
+                    updateScore(move);
+                    switchTimer();
+                    checkGameOver();
+
+                    if (isComputerMode && !game.game_over()) {
+                        setTimeout(makeComputerMove, 500);
+                    }
+                }
+
+                clearHighlights();
+                selectedSquare = null;
+            } else {
+                clearHighlights();
+                const piece = game.get(square.dataset.square);
+                if (piece && piece.color === game.turn()) {
+                    selectedSquare = square;
+                    highlightSquare(square);
+                    highlightPossibleMoves(square.dataset.square);
+                }
+            }
+        }
+
+        function makeComputerMove() {
+            let bestMove;
+            switch (computerDifficulty) {
+                case 'easy':
+                    bestMove = getRandomMove();
+                    break;
+                case 'medium':
+                    bestMove = getMediumMove();
+                    break;
+                case 'hard':
+                    bestMove = getBestMove(3); // Depth 3 for hard difficulty
+                    break;
+                default:
+                    bestMove = getMediumMove();
+            }
+
+            game.move(bestMove);
+            updateBoard();
+            updateMoveHistory(game.history({verbose: true}).pop());
+            updateScore(game.history({verbose: true}).pop());
+            switchTimer();
+            checkGameOver();
+
+            // Highlight computer's move
+            const lastMove = game.history({verbose: true}).pop();
+            const fromSquare = document.querySelector(`[data-square="${lastMove.from}"]`);
+            const toSquare = document.querySelector(`[data-square="${lastMove.to}"]`);
+            fromSquare.classList.add('computer-move');
+            toSquare.classList.add('computer-move');
+            setTimeout(() => {
+                fromSquare.classList.remove('computer-move');
+                toSquare.classList.remove('computer-move');
+            }, 1000);
+        }
+
+        function getRandomMove() {
+            const moves = game.moves();
+            return moves[Math.floor(Math.random() * moves.length)];
+        }
+
+        function getMediumMove() {
+            const moves = game.moves();
+            const goodMoves = moves.filter(move => !move.includes('#') && !move.includes('+'));
+            return goodMoves.length > 0 ? goodMoves[Math.floor(Math.random() * goodMoves.length)] : getRandomMove();
+        }
+
+        function getBestMove(depth) {
+            let bestMove = null;
+            let bestScore = game.turn() === 'w' ? -Infinity : Infinity;
+
+            const moves = game.moves();
+            for (let move of moves) {
+                game.move(move);
+                const score = minimax(depth - 1, game.turn() === 'w' ? -Infinity : Infinity, game.turn() === 'w');
+                game.undo();
+
+                if (game.turn() === 'w' && score > bestScore) {
+                    bestScore = score;
+                    bestMove = move;
+                } else if (game.turn() === 'b' && score < bestScore) {
+                    bestScore = score;
+                    bestMove = move;
+                }
+            }
+
+            return bestMove;
+        }
+
+        function minimax(depth, alpha, beta, isMaximizingPlayer) {
+            if (depth === 0) {
+                return evaluateBoard();
+            }
+
+            const moves = game.moves();
+
+            if (isMaximizingPlayer) {
+                let maxEval = -Infinity;
+                for (let move of moves) {
+                    game.move(move);
+                    const eval = minimax(depth - 1, alpha, beta, false);
+                    game.undo();
+                    maxEval = Math.max(maxEval, eval);
+                    alpha = Math.max(alpha, eval);
+                    if (beta <= alpha) {
+                        break;
+                    }
+                }
+                return maxEval;
+            } else {
+                let minEval = Infinity;
+                for (let move of moves) {
+                    game.move(move);
+                    const eval = minimax(depth - 1, alpha, beta, true);
+                    game.undo();
+                    minEval = Math.min(minEval, eval);
+                    beta = Math.min(beta, eval);
+                    if (beta <= alpha) {
+                        break;
+                    }
+                }
+                return minEval;
+            }
+        }
+
+        function evaluateBoard() {
+            let score = 0;
+            for (let i = 0; i < 8; i++) {
+                for (let j = 0; j < 8; j++) {
+                    const piece = game.get(String.fromCharCode(97 + j) + (8 - i));
+                    if (piece) {
+                        const pieceValue = pieceValues[piece.type.toLowerCase()];
+                        score += piece.color === 'w' ? pieceValue : -pieceValue;
+                    }
+                }
+            }
+            return score;
+        }
+
+        function clearHighlights() {
+            document.querySelectorAll('.highlight, .possible-move').forEach(el => {
+                el.classList.remove('highlight', 'possible-move');
+            });
+        }
+
+        function highlightSquare(square) {
+            square.classList.add('highlight');
+        }
+
+        function highlightPossibleMoves(square) {
+            const moves = game.moves({ square: square, verbose: true });
+            moves.forEach(move => {
+                const targetSquare = document.querySelector(`[data-square="${move.to}"]`);
+                targetSquare.classList.add('possible-move');
+            });
+        }
+
+        function updateMoveHistory(move) {
+            moveHistory.push(game.fen());
+            const movesContainer = document.getElementById('moves');
+            const moveItem = document.createElement('div');
+            moveItem.classList.add('move-item');
+            moveItem.textContent = `${game.turn() === 'w' ? 'Pretas' : 'Brancas'}: ${move.san}`;
+            movesContainer.appendChild(moveItem);
+            movesContainer.scrollTop = movesContainer.scrollHeight;
+
+            // Keep only the last 3 moves visible when collapsed
+            const moveItems = movesContainer.getElementsByClassName('move-item');
+            if (moveItems.length > 3) {
+                for (let i = 0; i < moveItems.length - 3; i++) {
+                    moveItems[i].style.display = movesContainer.classList.contains('collapsed') ? 'none' : '';
+                }
+            }
+        }
+
+        function updateScore(move) {
+            if (move.captured) {
+                const capturedPieceValue = pieceValues[move.captured];
+                if (move.color === 'w') {
+                    whiteScore += capturedPieceValue;
+                } else {
+                    blackScore += capturedPieceValue;
+                }
+                document.getElementById('white-score').textContent = whiteScore;
+                document.getElementById('black-score').textContent = blackScore;
+            }
+        }
+
+        function switchTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (game.turn() === 'w') {
+                    whiteTimer--;
+                } else {
+                    blackTimer--;
+                }
+                updateTimerDisplay();
+                if (whiteTimer <= 0 || blackTimer <= 0) {
+                    clearInterval(timerInterval);
+                    alert(`Tempo esgotado! ${game.turn() === 'w' ? 'Pretas' : 'Brancas'} vencem!`);
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            document.getElementById('white-timer').textContent = formatTime(whiteTimer);
+            document.getElementById('black-timer').textContent = formatTime(blackTimer);
+        }
+
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        function checkGameOver() {
+            if (game.game_over()) {
+                clearInterval(timerInterval);
+                let message = '';
+                if (game.in_checkmate()) {
+                    message = `Xeque-mate! ${game.turn() === 'w' ? 'Pretas' : 'Brancas'} vencem!`;
+                } else if (game.in_draw()) {
+                    message = 'Empate!';
+                } else if (game.in_stalemate()) {
+                    message = 'Rei afogado! Empate!';
+                }
+                alert(message);
+            }
+        }
+
+        document.getElementById('undo').addEventListener('click', () => {
+            if (moveHistory.length > 1) {
+                moveHistory.pop(); // Remove current position
+                const previousPosition = moveHistory.pop();
+                game.load(previousPosition);
+                updateBoard();
+                const movesContainer = document.getElementById('moves');
+                movesContainer.removeChild(movesContainer.lastChild);
+                if (isComputerMode) {
+                    // Undo one more move in computer mode
+                    if (moveHistory.length > 1) {
+                        moveHistory.pop();
+                        const previousPosition = moveHistory.pop();
+                        game.load(previousPosition);
+                        updateBoard();
+                        movesContainer.removeChild(movesContainer.lastChild);
+                    }
+                }
+            }
+        });
+
+        document.getElementById('newGame').addEventListener('click', () => {
+            game.reset();
+            moveHistory = [];
+            whiteTimer = 600;
+            blackTimer = 600;
+            whiteScore = 0;
+            blackScore = 0;
+            clearInterval(timerInterval);
+            updateBoard();
+            updateTimerDisplay();
+            document.getElementById('white-score').textContent = '0';
+            document.getElementById('black-score').textContent = '0';
+            document.getElementById('moves').innerHTML = '';
+        });
+
+        document.getElementById('toggleMode').addEventListener('click', () => {
+            isComputerMode = !isComputerMode;
+            document.getElementById('mode-display').textContent = isComputerMode ? 'vs Computador' : '2 Jogadores';
+            document.getElementById('difficulty').style.display = isComputerMode ? 'block' : 'none';
+            // Reset the game when changing modes
+            game.reset();
+            moveHistory = [];
+            whiteTimer = 600;
+            blackTimer = 600;
+            whiteScore = 0;
+            blackScore = 0;
+            clearInterval(timerInterval);
+            updateBoard();
+            updateTimerDisplay();
+            document.getElementById('white-score').textContent = '0';
+            document.getElementById('black-score').textContent = '0';
+            document.getElementById('moves').innerHTML = '';
+            if (isComputerMode && game.turn() === 'b') {
+                setTimeout(makeComputerMove, 500);
+            }
+        });
+
+        document.getElementById('toggleMoves').addEventListener('click', () => {
+            const movesContainer = document.getElementById('moves');
+            movesContainer.classList.toggle('collapsed');
+            const moveItems = movesContainer.getElementsByClassName('move-item');
+            for (let i = 0; i < moveItems.length - 3; i++) {
+                moveItems[i].style.display = movesContainer.classList.contains('collapsed') ? 'none' : '';
+            }
+        });
+
+        document.getElementById('difficulty-select').addEventListener('change', (e) => {
+            computerDifficulty = e.target.value;
+        });
+
+        createBoard();
+        switchTimer();
+    </script>
+</body>
+</html>

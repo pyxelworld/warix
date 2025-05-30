@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desafio Matemático</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f39c12;
+            --background-color: #f5f6fa;
+            --text-color: #2c3e50;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+        .game-container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+        #problem {
+            font-size: 28px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        #answer {
+            font-size: 18px;
+            padding: 10px;
+            width: 100px;
+            border: 2px solid var(--primary-color);
+            border-radius: 5px;
+            text-align: center;
+        }
+        #submit {
+            font-size: 18px;
+            padding: 10px 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.3s ease;
+        }
+        #submit:hover {
+            background-color: #3a7bc8;
+        }
+        #result {
+            margin-top: 20px;
+            font-weight: bold;
+            height: 24px;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--secondary-color);
+        }
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        #progress {
+            height: 100%;
+            background-color: var(--secondary-color);
+            width: 0%;
+            transition: width 0.5s ease-in-out;
+        }
+        @media (max-width: 480px) {
+            .game-container {
+                padding: 1rem;
+            }
+            #problem {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Desafio Matemático</h1>
+        <div id="problem"></div>
+        <input type="number" id="answer" placeholder="Resposta" autofocus>
+        <button id="submit" onclick="checkAnswer()">Enviar</button>
+        <div id="result"></div>
+        <div class="progress-bar">
+            <div id="progress"></div>
+        </div>
+        <div class="stats">
+            <div class="stat">
+                <span class="stat-value" id="score">0</span>
+                <span>Pontos</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value" id="level">1</span>
+                <span>Nível</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value" id="timer">30</span>
+                <span>Tempo</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const OPERATIONS = ['+', '-', '*', '/'];
+        const LEVELS = [
+            {maxNumber: 10, timeLimit: 30},
+            {maxNumber: 20, timeLimit: 25},
+            {maxNumber: 50, timeLimit: 20},
+            {maxNumber: 100, timeLimit: 15}
+        ];
+        
+        let currentProblem, score = 0, level = 1, timer, timeLeft;
+
+        function generateProblem() {
+            const operation = OPERATIONS[Math.floor(Math.random() * OPERATIONS.length)];
+            const currentLevel = LEVELS[level - 1];
+            let num1, num2;
+
+            switch(operation) {
+                case '+':
+                case '-':
+                    num1 = Math.floor(Math.random() * currentLevel.maxNumber) + 1;
+                    num2 = Math.floor(Math.random() * currentLevel.maxNumber) + 1;
+                    break;
+                case '*':
+                    num1 = Math.floor(Math.random() * (currentLevel.maxNumber / 10)) + 1;
+                    num2 = Math.floor(Math.random() * 10) + 1;
+                    break;
+                case '/':
+                    num2 = Math.floor(Math.random() * 10) + 1;
+                    num1 = num2 * (Math.floor(Math.random() * 10) + 1);
+                    break;
+            }
+
+            let problem = `${num1} ${operation} ${num2}`;
+            currentProblem = {
+                problem: problem,
+                answer: eval(problem)
+            };
+
+            document.getElementById('problem').textContent = problem + ' = ?';
+        }
+
+        function checkAnswer() {
+            const userAnswer = parseFloat(document.getElementById('answer').value);
+            const resultElement = document.getElementById('result');
+            
+            if (Math.abs(userAnswer - currentProblem.answer) < 0.01) {
+                resultElement.textContent = 'Correto!';
+                resultElement.style.color = 'green';
+                score++;
+                updateProgress();
+            } else {
+                resultElement.textContent = `Incorreto. A resposta era ${currentProblem.answer}.`;
+                resultElement.style.color = 'red';
+            }
+
+            document.getElementById('score').textContent = score;
+            document.getElementById('answer').value = '';
+            generateProblem();
+        }
+
+        function updateProgress() {
+            const progress = (score % 10) * 10;
+            document.getElementById('progress').style.width = `${progress}%`;
+            
+            if (progress === 0) {
+                level = Math.min(level + 1, LEVELS.length);
+                document.getElementById('level').textContent = level;
+                resetTimer();
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(timer);
+            timeLeft = LEVELS[level - 1].timeLimit;
+            document.getElementById('timer').textContent = timeLeft;
+            timer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    alert('Tempo esgotado! Jogo terminado.');
+                    resetGame();
+                }
+            }, 1000);
+        }
+
+        function resetGame() {
+            score = 0;
+            level = 1;
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = level;
+            document.getElementById('progress').style.width = '0%';
+            generateProblem();
+            resetTimer();
+        }
+
+        document.getElementById('answer').addEventListener('keyup', function(event) {
+            if (event.key === 'Enter') {
+                checkAnswer();
+            }
+        });
+
+        generateProblem();
+        resetTimer();
+    </script>
+</body>
+</html>

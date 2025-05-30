@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Guesser</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #1a237e;
+            padding: 20px;
+            color: #bbdefb;
+        }
+
+        #game-container, #start-screen {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        h1 {
+            font-family: 'Fredoka One', cursive;
+            color: #1a237e;
+            margin-bottom: 20px;
+        }
+
+        #progress-container {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 20px;
+        }
+
+        #progress-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(#ff9800 0deg, #eee 0deg);
+            transition: background 0.3s;
+        }
+
+        #progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            font-weight: bold;
+            color: #1a237e;
+        }
+
+        #score, #attempts {
+            font-size: 20px;
+            color: #1a237e;
+            margin-bottom: 10px;
+        }
+
+        #question {
+            font-size: 24px;
+            color: #1a237e;
+            margin-bottom: 20px;
+        }
+
+        #answer-input {
+            width: 100%;
+            padding: 10px;
+            font-size: 18px;
+            border: 2px solid #bbdefb;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            transition: border-color 0.3s;
+        }
+
+        #answer-input:focus {
+            border-color: #ff9800;
+            outline: none;
+        }
+
+        #feedback {
+            font-size: 18px;
+            margin-bottom: 20px;
+            min-height: 27px;
+        }
+
+        .correct {
+            color: #4caf50;
+        }
+
+        .incorrect {
+            color: #f44336;
+        }
+
+        button {
+            background: #ff9800;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.1s;
+        }
+
+        button:hover {
+            background: #f57c00;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        #timer {
+            width: 100%;
+            height: 5px;
+            background: #eee;
+            margin-bottom: 20px;
+            border-radius: 2.5px;
+            overflow: hidden;
+        }
+
+        #timer-bar {
+            width: 100%;
+            height: 100%;
+            background: #ff9800;
+            transition: width 0.1s linear;
+        }
+
+        #lives {
+            margin-bottom: 20px;
+        }
+
+        .life {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background: #f44336;
+            border-radius: 50%;
+            margin: 0 5px;
+        }
+
+        @media (max-width: 480px) {
+            #game-container, #start-screen {
+                padding: 15px;
+            }
+
+            #question {
+                font-size: 20px;
+            }
+
+            #answer-input {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="start-screen">
+        <h1>Word Guesser</h1>
+        <p>Teste seu conhecimento de palavras!</p>
+        <button id="start-btn">Começar Jogo</button>
+    </div>
+
+    <div id="game-container" style="display: none;">
+        <div id="score">Pontos: 0</div>
+        <div id="progress-container">
+            <div id="progress-bar"></div>
+            <div id="progress-text">1/10</div>
+        </div>
+        <div id="lives"></div>
+        <div id="timer">
+            <div id="timer-bar"></div>
+        </div>
+        <div id="question"></div>
+        <input type="text" id="answer-input" placeholder="Digite sua resposta">
+        <div id="feedback"></div>
+        <button id="submit-btn">Enviar</button>
+    </div>
+
+    <script>
+        const questions = [
+            {
+                question: "Fala o nome de um planeta no sistema solar",
+                answers: ["mercurio", "mercúrio", "venus", "vênus", "terra", "marte", "jupiter", "júpiter", "saturno", "urano", "netuno", "neptuno"]
+            },
+            {
+                question: "Fala o nome de uma fruta",
+                answers: ["abacaxi", "banana", "laranja", "morango", "uva", "manga", "melancia", "pera", "maca", "maçã", "kiwi", "abacate", "goiaba", "limão", "maracujá", "cereja", "ameixa", "caju", "jabuticaba", "acerola", "carambola", "framboesa", "groselha", "jambo", "pitanga", "tangerina", "caqui", "figo", "graviola", "jaca"]
+            },
+            {
+                question: "Nome uma matéria escolar",
+                answers: ["matematica", "matemática", "portugues", "português", "historia", "história", "geografia", "ciencias", "ciências", "fisica", "física", "quimica", "química", "biologia", "ingles", "inglês", "espanhol", "educacao fisica", "educação física", "artes", "filosofia", "sociologia", "literatura", "redacao", "redação"]
+            },
+            {
+                question: "Diga um animal que vive na água",
+                answers: ["baleia", "golfinho", "tubarao", "tubarão", "peixe", "polvo", "lula", "caranguejo", "estrela do mar", "água viva", "tartaruga marinha", "foca", "pinguim", "arraia", "salmão", "atum", "boto", "cavalo marinho"]
+            },
+            {
+                question: "Nome uma profissão",
+                answers: ["medico", "médico", "professor", "engenheiro", "advogado", "dentista", "arquiteto", "programador", "desenvolvedor", "enfermeiro", "bombeiro", "policial", "motorista", "piloto", "chef", "cozinheiro", "veterinário", "jornalista", "designer", "psicólogo", "ator", "atriz"]
+            },
+            {
+                question: "Diga um esporte",
+                answers: ["futebol", "basquete", "volei", "vôlei", "natacao", "natação", "tenis", "tênis", "atletismo", "ginástica", "ciclismo", "boxe", "judo", "judô", "karate", "karatê", "surf", "skate", "handebol", "corrida"]
+            },
+            {
+                question: "Nome um país da América do Sul",
+                answers: ["brasil", "argentina", "chile", "peru", "colombia", "colômbia", "venezuela", "equador", "bolivia", "bolívia", "paraguai", "uruguai", "guiana", "guiana francesa"]
+            },
+            {
+                question: "Diga um instrumento musical",
+                answers: ["violao", "violão", "piano", "bateria", "guitarra", "flauta", "saxofone", "violino", "trompete", "teclado", "baixo", "harpa", "banjo"]
+            },
+            {
+                question: "Nome uma cor em português",
+                answers: ["vermelho", "azul", "amarelo", "verde", "roxo", "laranja", "marrom", "preto", "branco", "cinza", "rosa"]
+            },
+            {
+                question: "Diga um elemento da natureza",
+                answers: ["agua", "água", "fogo", "terra", "ar", "gelo", "chuva", "vento", "sol", "lua", "estrela"]
+            },
+            {
+                question: "Nome um tipo de animal de estimação",
+                answers: ["cachorro", "gato", "peixe", "hamster", "coelho", "papagaio", "periquito", "tartaruga", "iguana"]
+            },
+            {
+                question: "Diga um meio de transporte",
+                answers: ["carro", "onibus", "ônibus", "trem", "metro", "metrô", "aviao", "avião", "bicicleta", "moto", "motocicleta", "barco", "navio", "helicoptero", "helicóptero"]
+            }
+        ];
+
+        let gameQuestions = [];
+        let currentQuestion = 0;
+        let score = 0;
+        let streak = 0;
+        let lives = 3;
+        let timerInterval;
+
+        const startScreen = document.getElementById('start-screen');
+        const gameContainer = document.getElementById('game-container');
+        const questionElement = document.getElementById('question');
+        const answerInput = document.getElementById('answer-input');
+        const feedbackElement = document.getElementById('feedback');
+        const submitButton = document.getElementById('submit-btn');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const scoreElement = document.getElementById('score');
+        const livesElement = document.getElementById('lives');
+        const timerBar = document.getElementById('timer-bar');
+
+        function normalizeText(text) {
+            return text.toLowerCase()
+                .trim()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "");
+        }
+
+        function startTimer() {
+            let timeLeft = 100;
+            timerBar.style.width = '100%';
+            
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft -= 1;
+                timerBar.style.width = timeLeft + '%';
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    checkAnswer();
+                }
+            }, 100);
+        }
+
+        function updateLives() {
+            livesElement.innerHTML = '';
+            for (let i = 0; i < lives; i++) {
+                const life = document.createElement('div');
+                life.className = 'life';
+                livesElement.appendChild(life);
+            }
+        }
+
+        function displayQuestion() {
+            if (currentQuestion < gameQuestions.length) {
+                questionElement.textContent = gameQuestions[currentQuestion].question;
+                answerInput.value = '';
+                feedbackElement.textContent = '';
+                progressBar.style.background = `conic-gradient(#ff9800 ${(currentQuestion + 1) * 36}deg, #eee 0deg)`;
+                progressText.textContent = `${currentQuestion + 1}/10`;
+                updateLives();
+                startTimer();
+            } else {
+                endGame();
+            }
+        }
+
+        function checkAnswer() {
+            clearInterval(timerInterval);
+            const userAnswer = normalizeText(answerInput.value);
+            const correctAnswers = gameQuestions[currentQuestion].answers.map(answer => normalizeText(answer));
+            
+            if (correctAnswers.includes(userAnswer)) {
+                const basePoints = userAnswer.length;
+                const points = basePoints; // Pontos não reduzidos
+                streak++;
+                const streakBonus = streak > 1 ? Math.floor(streak / 2) : 0;
+                score += points + streakBonus;
+                feedbackElement.textContent = `Correto! +${points} pontos ${streakBonus ? `(+${streakBonus} bônus de sequência)` : ''}`;
+                feedbackElement.className = 'correct';
+                currentQuestion++;
+                setTimeout(displayQuestion, 2000);
+            } else {
+                lives--;
+                streak = 0;
+                updateLives();
+                
+                if (lives > 0) {
+                    feedbackElement.textContent = `Incorreto! Você ainda tem ${lives} vida${lives > 1 ? 's' : ''}. Tente novamente!`;
+                    feedbackElement.className = 'incorrect';
+                    startTimer();
+                } else {
+                    endGame();
+                }
+            }
+            
+            scoreElement.textContent = `Pontos: ${score}`;
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            questionElement.textContent = `Fim de jogo! Sua pontuação final: ${score}`;
+            answerInput.style.display = 'none';
+            submitButton.style.display = 'none';
+            feedbackElement.textContent = '';
+            timerBar.style.width = '0%';
+            livesElement.innerHTML = '';
+
+            const playAgainBtn = document.createElement('button');
+            playAgainBtn.textContent = 'Jogar Novamente';
+            playAgainBtn.addEventListener('click', startGame);
+            gameContainer.appendChild(playAgainBtn);
+        }
+
+        function startGame() {
+            gameQuestions = [];
+            const shuffledQuestions = questions.sort(() => 0.5 - Math.random());
+            gameQuestions = shuffledQuestions.slice(0, 10);
+            
+            currentQuestion = 0;
+            score = 0;
+            streak = 0;
+            lives = 3;
+            scoreElement.textContent = 'Pontos: 0';
+            answerInput.style.display = 'block';
+            submitButton.style.display = 'block';
+            
+            const playAgainBtn = gameContainer.querySelector('button:not(#submit-btn)');
+            if (playAgainBtn) {
+                playAgainBtn.remove();
+            }
+
+            startScreen.style.display = 'none';
+            gameContainer.style.display = 'block';
+            displayQuestion();
+        }
+
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        submitButton.addEventListener('click', checkAnswer);
+        answerInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                checkAnswer();
+            }
+        });
+    </script>
+</body>
+</html>

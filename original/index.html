@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wari</title>
+    <style>
+        :root {
+            --main-yellow: #F2D72B;
+            --highlight-purple: #AE529F;
+            --background: #000000;
+            --card-bg: #232527;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background);
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 100%;
+            padding: 20px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: var(--background);
+            border-bottom: 1px solid #333;
+            position: relative;
+        }
+        .logo-container {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .logo {
+            width: 30px;
+            height: 30px;
+            margin-right: 10px;
+            border-radius: 25%;
+            overflow: hidden;
+            object-fit: cover;
+        }
+        h1 {
+            font-size: 1.5em;
+            margin: 0;
+            color: var(--main-yellow);
+            text-shadow: 0 0 10px var(--main-yellow);
+        }
+        .search-container {
+            position: relative;
+        }
+        .icon {
+            font-size: 1.2em;
+            color: var(--main-yellow);
+            cursor: pointer;
+            text-shadow: 0 0 10px var(--main-yellow);
+        }
+        .iconp {
+            font-size: 1.2em;
+            color: var(--main-yellow);
+            cursor: pointer;
+            text-shadow: 0 0 10px var(--main-yellow);
+            margin-right: 15px;
+        }
+        .icona {
+            font-size: 1.2em;
+            color: var(--main-yellow);
+            cursor: pointer;
+            text-shadow: 0 0 10px var(--main-yellow);
+            margin-left: 15px;
+        }
+        .search-bar {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            width: 200px;
+            padding: 8px 12px;
+            margin-top: 10px;
+            background-color: var(--card-bg);
+            border: none;
+            border-radius: 20px;
+            color: #ffffff;
+            font-size: 0.9em;
+            box-shadow: 0 0 10px rgba(242, 215, 43, 0.3);
+            transition: all 0.3s ease;
+        }
+        .search-bar:focus {
+            outline: none;
+            box-shadow: 0 0 15px rgba(242, 215, 43, 0.5);
+            width: 250px;
+        }
+        .welcome-message {
+            font-size: 1.2em;
+            margin: 20px 0;
+            color: var(--main-yellow);
+            text-shadow: 0 0 15px var(--main-yellow);
+        }
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        .game-card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(174, 82, 159, 0.3);
+            cursor: pointer;
+        }
+        .game-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 20px rgba(242, 215, 43, 0.6);
+        }
+        .game-image-container {
+            width: 100%;
+            padding-top: 56.25%;
+            position: relative;
+            overflow: hidden;
+        }
+        .game-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .game-info {
+            padding: 10px;
+        }
+        .game-title {
+            font-size: 0.9em;
+            margin: 0 0 5px 0;
+            color: var(--main-yellow);
+            text-shadow: 0 0 5px var(--main-yellow);
+        }
+        .game-supports {
+            font-size: 0.8em;
+            color: var(--highlight-purple);
+        }
+        .game-creator {
+            font-size: 0.8em;
+            color: var(--highlight-purple);
+            margin-bottom: 10px;
+        }
+
+        .flex {
+            display: flex;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo-container" onclick="window.location.href='/'">
+            <img src="/original/logo.png" alt="Wari Logo" class="logo">
+            <h1>Wari</h1>
+        </div>
+        <div class="flex">
+            <div class="iconp"><a href="/original/publish">🆕</a></div>
+            <div class="iconp"><a href="/original/edit">✏️</a></div>
+            <div class="iconp"><a href="/original/app">📱</a></div>
+            <div class="search-container">
+                <div class="icon" onclick="toggleSearch()">🔍</div>
+                <input type="text" id="searchBar" class="search-bar" placeholder="Pesquisar..." oninput="searchGames()">
+            </div>
+            <div class="icona"><a href="https://pyxelworld.com/">✨</a></div>
+        </div>
+    </header>
+    <div class="container">
+        <div class="welcome-message">Olá, o que você gostaria de jogar hoje? </div>
+        <div class="game-grid" id="gameGrid"></div>
+    </div>
+
+    <script>
+        const games = [
+            {name: "Flappy Square", url: "https://analytics.wariotesco.com/1eOXFfXL", supports: ["computador", "mobile"], image: "/original/images/flappysquare.png", creator: "trem, Magic Sonnet"},
+            {name: "Genius", url: "https://analytics.wariotesco.com/qxUlKU", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "Word Guesser", url: "https://analytics.wariotesco.com/tM8j6z", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Lukedinha2, Magic X"},
+            {name: "Blockos", url: "https://analytics.wariotesco.com/236KPm", supports: ["computador", "mobile"], image: "/original/images/blockos.png", creator: "trem, Magic X Sonnet, Magic X GPT-4o"},
+            {name: "Flip a Coin", url: "https://analytics.wariotesco.com/uXXzLb", supports: ["computador"], image: "wari.png", creator: "Lukedinha2, Magic X GPT-4o"},
+            {name: "Flip a Coin - Sex Edition", url: "https://analytics.wariotesco.com/kSgSPm", supports: ["computador"], image: "wari.png", creator: "Lukedinha2, Magic X GPT-4o"},
+            {name: "Emoji Taekwondo", url: "https://analytics.wariotesco.com/rPq1dW", supports: ["mobile"], image: "/original/images/emojitaekwondo.jpeg", creator: "Lolo68009, Magic X Sonnet"},
+            {name: "Quiz de esportes", url: "https://analytics.wariotesco.com/hTgLd7", supports: ["computador", "mobile"], image: "wari.png", creator: "Lolo68009, Magic X Sonnet"},
+            {name: "Ball Sort Puzzle", url: "https://analytics.wariotesco.com/mPep62", supports: ["computador", "mobile"], image: "/original/images/ballsortpuzzle.jpeg", creator: "Lukedinha2, trem, Magic X GPT-4o, Magic Sonnet"},
+            {name: "Medidor de Decibéis", url: "https://analytics.wariotesco.com/Xqyuxg", supports: ["computador", "mobile", "Geladeira"], image: "wari.png", creator: "Lukedinha2, trem, Magic X GPT-4o"},
+            {name: "QRCode Reader", url: "https://analytics.wariotesco.com/24horh", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet, Magic GPT-4o Mini"},
+            {name: "Flappy Wings", url: "https://analytics.wariotesco.com/cWR0s2", supports: ["computador", "mobile"], image: "wari.png", creator: "PHiro11, trem, Magic GPT-4o"},
+            {name: "Climb", url: "https://analytics.wariotesco.com/TxR5dc", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "Hungry Snake", url: "https://analytics.wariotesco.com/mUBYxJ", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "Galaxy Invaders", url: "https://analytics.wariotesco.com/deOXFcpm", supports: ["computador", "mobile"], image: "/original/images/galaxyinvaders.png", creator: "PHiro11, Magic Sonnet"},
+            {name: "Screaming Dino", url: "https://analytics.wariotesco.com/reSoPO", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "Motion Dino", url: "https://analytics.wariotesco.com/fokwkd", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "Jumping Dino", url: "https://analytics.wariotesco.com/CeOCPNYI", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "Quaderos", url: "https://analytics.wariotesco.com/xIXF5a", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Lukedinha2, Magic X Sonnet"},
+            {name: "Magic Snake 2", url: "https://analytics.wariotesco.com/zeOXFN7O", supports: ["computador"], image: "/original/images/magicsnake2.png", creator: "PHiro11, Lukedinha2, Magic Sonnet"},
+            {name: "Battleships", url: "https://analytics.wariotesco.com/1Mu06O", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "Detetive dos Números", url: "https://analytics.wariotesco.com/jeOXFRR3", supports: ["computador", "mobile"], image: "wari.png", creator: "Lukedinha2, Magic X Sonnet"},
+            {name: "Numi", url: "https://analytics.wariotesco.com/RyqYat", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Lukedinha2, Magic X Sonnet"},
+            {name: "Resta 1", url: "https://analytics.wariotesco.com/gCCnRx", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "Cookie Clicker", url: "https://analytics.wariotesco.com/AXys1t", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "Corbos", url: "https://analytics.wariotesco.com/meOXFFZy", supports: ["computador", "mobile"], image: "/original/images/corbos.png", creator: "trem, Magic Sonnet"},
+            {name: "Jogo da Memória", url: "https://analytics.wariotesco.com/NeOXGdDO", supports: ["computador", "mobile"], image: "wari.png", creator: "Lukedinha2, Magic X Sonnet"},
+            {name: "River Raid", url: "https://analytics.wariotesco.com/nc37s8", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "adivinhe a nota", url: "https://analytics.wariotesco.com/vLi5dP", supports: ["computador", "mobile"], image: "wari.png", creator: "Lukedinha2, Magic X Sonnet"},
+            {name: "Pong", url: "https://analytics.wariotesco.com/ZrYmQx", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "Chess", url: "https://analytics.wariotesco.com/mFBghM", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "Stack", url: "https://analytics.wariotesco.com/2WLx3B", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "Hit the Box", url: "https://analytics.wariotesco.com/EeOXHlEb", supports: ["computador", "mobile"], image: "/original/images/hitthebox.png", creator: "trem, Magic Sonnet"},
+            {name: "Rei da África", url: "https://analytics.wariotesco.com/5eOXGE5i", supports: ["computador", "mobile"], image: "wari.png", creator: "Lukedinha2, Magic Sonnet"},
+            {name: "Eat-It", url: "https://analytics.wariotesco.com/ieOXGb6d", supports: ["computador", "mobile"], image: "wari.png", creator: "Lukedinha2, Magic Sonnet"},
+            {name: "4 In A Row", url: "https://analytics.wariotesco.com/XYAJVr", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "Super Futebol Ultimate", url: "https://analytics.wariotesco.com/CeOXGcDq", supports: ["computador", "mobile"], image: "wari.png", creator: "PHiro11, Magic Sonnet"},
+            {name: "A Fantástica Fábrica de Ouro", url: "https://analytics.wariotesco.com/8eOXGkmP", supports: ["computador", "mobile"], image: "/original/images/afantasticafabricadeouro.jpeg", creator: "Lukedinha2, Magic X Sonnet"},
+            {name: "Caça-Rato", url: "https://analytics.wariotesco.com/zgUOKU", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "Glue-it!", url: "https://analytics.wariotesco.com/heOXHsua", supports: ["computador", "mobile"], image: "wari.png", creator: "Lukedinha2, Magic Sonnet"},
+            {name: "Carros", url: "https://analytics.wariotesco.com/peOXHgMR", supports: ["computador", "mobile"], image: "wari.png", creator: "Lukedinha2, Magic Sonnet"},
+            {name: "Desafio Matemático", url: "https://analytics.wariotesco.com/2eOXJtGK", supports: ["computador", "mobile"], image: "wari.png", creator: "Lukedinha2, Magic X Sonnet"},
+            {name: "Forquinha", url: "https://analytics.wariotesco.com/1eOXJlnB", supports: ["mobile"], image: "wari.png", creator: "Lukedinha2, Magic X Sonnet"},
+            {name: "Magic Snake", url: "https://analytics.wariotesco.com/9eOXG1nt", supports: ["computador"], image: "wari.png", creator: "Lukedinha2, Magic Sonnet"},
+            {name: "Carro 3d", url: "https://analytics.wariotesco.com/SeOXHW4i", supports: ["computador"], image: "wari.png", creator: "PHiro11, Magic Sonnet"},
+            {name: "Subway Racers", url: "https://analytics.wariotesco.com/weOXJmSK", supports: ["computador"], image: "/original/images/subwayracers.png", creator: "trem, Magic Sonnet"},
+            {name: "Whack-A-Mole", url: "https://analytics.wariotesco.com/8eOXF5J1", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Magic X Sonnet"},
+            {name: "Magic Blocks", url: "https://analytics.wariotesco.com/ceOXGSlY", supports: ["computador"], image: "wari.png", creator: "Lukedinha2, Magic Sonnet"},
+            {name: "Jogo da Velha", url: "https://analytics.wariotesco.com/0eOXGJsF", supports: ["computador", "mobile"], image: "wari.png", creator: "PHiro11, Magic Sonnet"},
+            {name: "Geometry Rush", url: "https://analytics.wariotesco.com/2eOXHtCc", supports: ["computador"], image: "/original/images/geometryrush.png", creator: "trem, Magic Sonnet"},
+            {name: "Jogo da Idosa", url: "https://analytics.wariotesco.com/teOXHopQ", supports: ["computador", "mobile"], image: "wari.png", creator: "Lukedinha2, Magic Sonnet"},
+            {name: "Jumping Cat", url: "https://analytics.wariotesco.com/NeOXHxMb", supports: ["computador", "mobile"], image: "wari.png", creator: "Lukedinha2, Magic Sonnet"},
+            {name: "Caça Fantasmas", url: "https://analytics.wariotesco.com/TeOXHSNf", supports: ["computador"], image: "wari.png", creator: "Lukedinha2, Magic Sonnet"},
+            {name: "Pyxel Chess", url: "https://analytics.wariotesco.com/seOXHXQw", supports: ["computador", "mobile"], image: "wari.png", creator: "Lukedinha2, Magic Sonnet"},
+            {name: "Aventura dos Predicados", url: "https://analytics.wariotesco.com/MeOXHNI8", supports: ["computador", "mobile"], image: "wari.png", creator: "trem, Lukedinha2, Magic Sonnet"}
+        ];
+
+        const gameGrid = document.getElementById('gameGrid');
+        const searchBar = document.getElementById('searchBar');
+
+        function createGameCard(game) {
+            const gameCard = document.createElement('div');
+            gameCard.className = 'game-card';
+            const gameUrl = game.url;
+
+            gameCard.innerHTML = `
+                <div class="game-image-container">
+                    <img src="${game.image}" alt="${game.name}" class="game-image">
+                </div>
+                <div class="game-info">
+                    <h3 class="game-title">${game.name}</h3>
+                    <div class="game-creator">${game.creator}</div>
+                    <div class="game-supports">Suporta: ${game.supports.join(', ')}</div>
+                </div>
+            `;
+
+            gameCard.addEventListener('click', () => {
+                window.location.href = gameUrl;
+            });
+
+            return gameCard;
+        }
+
+        function displayGames(gamesToDisplay) {
+            gameGrid.innerHTML = '';
+            gamesToDisplay.forEach(game => {
+                gameGrid.appendChild(createGameCard(game));
+            });
+        }
+
+        function searchGames() {
+            const searchTerm = searchBar.value.toLowerCase();
+            const filteredGames = games.filter(game => 
+                game.name.toLowerCase().includes(searchTerm) ||
+                game.supports.some(support => support.toLowerCase().includes(searchTerm)) ||
+                game.creator.toLowerCase().includes(searchTerm)
+            );
+            displayGames(filteredGames);
+        }
+
+        function toggleSearch() {
+            searchBar.style.display = searchBar.style.display === 'none' || searchBar.style.display === '' ? 'block' : 'none';
+            if (searchBar.style.display === 'none') {
+                searchBar.value = '';
+                displayGames(games);
+            } else {
+                searchBar.focus();
+            }
+        }
+
+        displayGames(games);
+    </script>
+</body>
+</html>

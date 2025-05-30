@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern QR & Barcode Scanner</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #ffffff;
+            --accent-color: #4CAF50;
+            --menu-bg: rgba(42, 42, 42, 0.9);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+        }
+
+        #reader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #draggable-menu {
+            position: fixed;
+            left: 0;
+            width: 100%;
+            background-color: var(--menu-bg);
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+            z-index: 1000;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #draggable-menu.compressed {
+            bottom: 0;
+            transform: translateY(calc(100% - 70px));
+        }
+
+        #draggable-menu.expanded {
+            top: 20px;
+            bottom: 0;
+            transform: translateY(0);
+        }
+
+        #menu-content {
+            padding: 20px;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+        }
+
+        #drag-handle {
+            width: 40px;
+            height: 5px;
+            background-color: var(--text-color);
+            margin: 10px auto;
+            border-radius: 3px;
+        }
+
+        .draggable-area {
+            height: 50px;
+            cursor: grab;
+        }
+
+        .result-container {
+            display: none;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        #result {
+            word-break: break-all;
+            margin-bottom: 10px;
+        }
+
+        #recreated-code {
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .history-item {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+        }
+
+        #camera-dropdown {
+            display: none;
+            position: absolute;
+            background-color: var(--menu-bg);
+            border-radius: 10px;
+            padding: 10px;
+            z-index: 1001;
+        }
+
+        #camera-dropdown button {
+            display: block;
+            width: 100%;
+            text-align: left;
+            margin-bottom: 5px;
+        }
+
+        #switchCamera {
+            width: calc(100% - 40px);
+            margin: 0 20px;
+        }
+
+        @media (max-width: 600px) {
+            #menu-content {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="reader"></div>
+    <div id="draggable-menu" class="compressed">
+        <div class="draggable-area">
+            <div id="drag-handle"></div>
+        </div>
+        <div id="menu-content">
+            <div class="result-container">
+                <h2>Scanned Result:</h2>
+                <p id="result"></p>
+                <div id="recreated-code"></div>
+                <button id="copyBtn"><i class="fas fa-copy"></i> Copy</button>
+            </div>
+            <div>
+                <button id="switchCamera"><i class="fas fa-camera-rotate"></i> Switch Camera</button>
+                <div id="camera-dropdown"></div>
+            </div>
+            <h2>Scan History:</h2>
+            <div id="history"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
+    <script>
+        const reader = document.getElementById('reader');
+        const result = document.getElementById('result');
+        const recreatedCode = document.getElementById('recreated-code');
+        const copyBtn = document.getElementById('copyBtn');
+        const switchCameraBtn = document.getElementById('switchCamera');
+        const historyContainer = document.getElementById('history');
+        const draggableMenu = document.getElementById('draggable-menu');
+        const dragHandle = document.getElementById('drag-handle');
+        const resultContainer = document.querySelector('.result-container');
+        const cameraDropdown = document.getElementById('camera-dropdown');
+        const draggableArea = document.querySelector('.draggable-area');
+
+        let currentCamera = 'environment';
+        let html5QrCode;
+        let scanHistory = [];
+        let cameraDevices = [];
+        let isDragging = false;
+        let startY, startTranslateY;
+
+        function initializeScanner() {
+            html5QrCode = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+            html5QrCode.start(
+                { facingMode: currentCamera },
+                config,
+                onScanSuccess
+            ).catch(error => {
+                // Removed camera error logging
+            });
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            result.textContent = decodedText;
+            recreateCode(decodedText, decodedResult.result.format);
+            addToHistory(decodedText);
+            showResult();
+            expandMenu();
+            if (window.navigator.vibrate) {
+                window.navigator.vibrate(200);
+            }
+        }
+
+        function recreateCode(text, format) {
+            recreatedCode.innerHTML = '';
+            if (format === 'QR_CODE') {
+                const qr = qrcode(0, 'L');
+                qr.addData(text);
+                qr.make();
+                recreatedCode.innerHTML = qr.createImgTag(5);
+            } else {
+                const canvas = document.createElement('canvas');
+                JsBarcode(canvas, text, { format: format, width: 2, height: 100 });
+                recreatedCode.appendChild(canvas);
+            }
+        }
+
+        function addToHistory(text) {
+            scanHistory.unshift(text);
+            if (scanHistory.length > 10) {
+                scanHistory.pop();
+            }
+            updateHistoryDisplay();
+            saveHistory();
+        }
+
+        function updateHistoryDisplay() {
+            historyContainer.innerHTML = '';
+            scanHistory.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.textContent = item;
+                historyContainer.appendChild(div);
+            });
+        }
+
+        function saveHistory() {
+            if (isLocalStorageAvailable()) {
+                localStorage.setItem('scanHistory', JSON.stringify(scanHistory));
+            }
+        }
+
+        function loadHistory() {
+            if (isLocalStorageAvailable()) {
+                const savedHistory = localStorage.getItem('scanHistory');
+                if (savedHistory) {
+                    scanHistory = JSON.parse(savedHistory);
+                    updateHistoryDisplay();
+                }
+            }
+        }
+
+        function isLocalStorageAvailable() {
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function expandMenu() {
+            draggableMenu.classList.remove('compressed');
+            draggableMenu.classList.add('expanded');
+        }
+
+        function compressMenu() {
+            draggableMenu.classList.remove('expanded');
+            draggableMenu.classList.add('compressed');
+        }
+
+        function showResult() {
+            resultContainer.style.display = 'block';
+        }
+
+        function hideResult() {
+            resultContainer.style.display = 'none';
+        }
+
+        copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(result.textContent)
+                .then(() => {
+                    alert('Copied to clipboard!');
+                    if (window.navigator.vibrate) {
+                        window.navigator.vibrate(50);
+                    }
+                })
+                .catch(err => console.error('Error copying text: ', err));
+        });
+
+        switchCameraBtn.addEventListener('click', () => {
+            cameraDropdown.style.display = cameraDropdown.style.display === 'none' ? 'block' : 'none';
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!switchCameraBtn.contains(e.target) && !cameraDropdown.contains(e.target)) {
+                cameraDropdown.style.display = 'none';
+            }
+        });
+
+        function populateCameraDropdown() {
+            Html5Qrcode.getCameras().then(devices => {
+                cameraDevices = devices;
+                cameraDropdown.innerHTML = '';
+                devices.forEach(device => {
+                    const button = document.createElement('button');
+                    button.textContent = device.label;
+                    button.addEventListener('click', () => switchCamera(device.id));
+                    cameraDropdown.appendChild(button);
+                });
+            });
+        }
+
+        function switchCamera(deviceId) {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode.start(
+                        { deviceId: { exact: deviceId } },
+                        { fps: 10, qrbox: { width: 250, height: 250 } },
+                        onScanSuccess
+                    );
+                });
+            }
+            cameraDropdown.style.display = 'none';
+        }
+
+        function handleDragStart(e) {
+            isDragging = true;
+            startY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+            startTranslateY = getTranslateY();
+            draggableMenu.style.transition = 'none';
+        }
+
+        function handleDragMove(e) {
+            if (!isDragging) return;
+            const currentY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+            const deltaY = currentY - startY;
+            const newTranslateY = startTranslateY + deltaY;
+
+            // Prevent dragging too far down
+            if (newTranslateY > 0) {
+                draggableMenu.style.transform = `translateY(0px)`;
+            } else {
+                draggableMenu.style.transform = `translateY(${newTranslateY}px)`;
+            }
+        }
+
+        function handleDragEnd() {
+            if (!isDragging) return;
+            isDragging = false;
+            const currentTranslateY = getTranslateY();
+            const menuHeight = draggableMenu.offsetHeight;
+            const threshold = menuHeight / 2;
+
+            draggableMenu.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1)';
+
+            if (currentTranslateY < -threshold) {
+                expandMenu();
+            } else {
+                compressMenu();
+            }
+
+            // Snap animation
+            if (currentTranslateY < -threshold) {
+                draggableMenu.style.transform = `translateY(0px)`;
+            } else {
+                draggableMenu.style.transform = `translateY(calc(100% - 70px))`;
+            }
+
+            if (window.navigator.vibrate) {
+                window.navigator.vibrate(20);
+            }
+        }
+
+        function getTranslateY() {
+            const style = window.getComputedStyle(draggableMenu);
+            const matrix = new DOMMatrixReadOnly(style.transform);
+            return matrix.m42;
+        }
+
+        draggableArea.addEventListener('mousedown', handleDragStart);
+        draggableArea.addEventListener('touchstart', handleDragStart);
+
+        document.addEventListener('mousemove', handleDragMove);
+        document.addEventListener('touchmove', handleDragMove, { passive: false });
+
+        document.addEventListener('mouseup', handleDragEnd);
+        document.addEventListener('touchend', handleDragEnd);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadHistory();
+            initializeScanner();
+            populateCameraDropdown();
+            hideResult();
+        });
+    </script>
+</body>
+</html>

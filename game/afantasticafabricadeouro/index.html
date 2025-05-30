@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Fantástica Fábrica de Ouro</title>
+    <style>
+        body {
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #4A0E4E;
+            color: #FFD700;
+            background-image: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Ctext x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="20" fill="%23FFD700"%3E💰%3C/text%3E%3C/svg%3E');
+        }
+        .game-container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+            background-color: rgba(74, 14, 78, 0.8);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 0 20px #FFD700;
+        }
+        h1 {
+            font-size: 2.5em;
+            color: #FFD700;
+            text-shadow: 2px 2px 4px #000000;
+        }
+        .factory {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 5px;
+            margin-top: 20px;
+        }
+        .block {
+            aspect-ratio: 1;
+            background-color: #6B4423;
+            border: 2px solid #4A3016;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+        }
+        .block:hover {
+            background-color: #7C5632;
+            transform: scale(1.05);
+        }
+        .block.processed {
+            cursor: default;
+        }
+        .block.gold {
+            background-color: #FFD700;
+            animation: shine 0.5s ease-in-out;
+        }
+        @keyframes shine {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .block.stone::after {
+            content: "🪨";
+        }
+        .block.gold::after {
+            content: "💰";
+        }
+        #start-btn, #difficulty {
+            font-size: 18px;
+            padding: 10px 20px;
+            margin: 10px;
+            cursor: pointer;
+            background-color: #FFD700;
+            border: none;
+            border-radius: 5px;
+            color: #4A0E4E;
+            transition: all 0.3s;
+        }
+        #start-btn:hover, #difficulty:hover {
+            background-color: #FFC600;
+            transform: scale(1.05);
+        }
+        #stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            font-size: 20px;
+        }
+        @media (max-width: 600px) {
+            .factory {
+                grid-template-columns: repeat(5, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🏭 A Fantástica Fábrica de Ouro 🏭</h1>
+        <p>Bem-vindo à fábrica mais brilhante do mundo! Clique nos blocos para produzir ouro em tempo recorde!</p>
+        <div id="stats">
+            <div id="time">Tempo: 10s</div>
+            <div id="gold">Ouro: 0</div>
+            <div id="production">Produção: 0</div>
+        </div>
+        <select id="difficulty">
+            <option value="easy">Fácil (5x5)</option>
+            <option value="medium" selected>Médio (10x10)</option>
+            <option value="hard">Difícil (15x15)</option>
+        </select>
+        <button id="start-btn">Iniciar Produção!</button>
+        <div class="factory" id="factory"></div>
+    </div>
+
+    <audio id="process-sound" src="https://assets.mixkit.co/active_storage/sfx/2450/2450-preview.mp3"></audio>
+    <audio id="gold-sound" src="https://assets.mixkit.co/active_storage/sfx/1744/1744-preview.mp3"></audio>
+
+    <script>
+        const factoryElement = document.getElementById('factory');
+        const timeDisplay = document.getElementById('time');
+        const goldDisplay = document.getElementById('gold');
+        const productionDisplay = document.getElementById('production');
+        const startBtn = document.getElementById('start-btn');
+        const difficultySelect = document.getElementById('difficulty');
+        const processSound = document.getElementById('process-sound');
+        const goldSound = document.getElementById('gold-sound');
+
+        let time = 10;
+        let gold = 0;
+        let production = 0;
+        let timer;
+        let gridSize = 10;
+
+        function createFactory() {
+            factoryElement.innerHTML = '';
+            factoryElement.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+            for (let i = 0; i < gridSize * gridSize; i++) {
+                const block = document.createElement('div');
+                block.className = 'block';
+                block.dataset.index = i;
+                factoryElement.appendChild(block);
+            }
+        }
+
+        function updateDisplay() {
+            timeDisplay.textContent = `Tempo: ${time}s`;
+            goldDisplay.textContent = `Ouro: ${gold}`;
+            productionDisplay.textContent = `Produção: ${production}`;
+        }
+
+        function startGame() {
+            time = 10;
+            gold = 0;
+            production = 0;
+            updateDisplay();
+            startBtn.disabled = true;
+            difficultySelect.disabled = true;
+            createFactory();
+
+            timer = setInterval(() => {
+                time--;
+                updateDisplay();
+                if (time <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            clearInterval(timer);
+            startBtn.disabled = false;
+            difficultySelect.disabled = false;
+            alert(`Fim da produção! Você fabricou ${gold} de ouro e sua produção total foi ${production}.`);
+        }
+
+        function processBlock(block) {
+            if (block.classList.contains('processed')) return;
+
+            block.classList.add('processed');
+            processSound.currentTime = 0;
+            processSound.play();
+
+            if (Math.random() < 0.35) {
+                block.classList.add('gold');
+                goldSound.currentTime = 0;
+                goldSound.play();
+                gold++;
+                production += 15 + Math.floor(time * 1.5);
+            } else {
+                block.classList.add('stone');
+            }
+
+            updateDisplay();
+        }
+
+        factoryElement.addEventListener('click', (e) => {
+            if (e.target.classList.contains('block')) {
+                processBlock(e.target);
+            }
+        });
+
+        startBtn.addEventListener('click', startGame);
+
+        difficultySelect.addEventListener('change', (e) => {
+            switch (e.target.value) {
+                case 'easy':
+                    gridSize = 5;
+                    break;
+                case 'medium':
+                    gridSize = 10;
+                    break;
+                case 'hard':
+                    gridSize = 15;
+                    break;
+            }
+            createFactory();
+        });
+
+        createFactory();
+    </script>
+</body>
+</html>

@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>T-Rex Runner - Jump to Play!</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f7f7f7;
+            font-family: Arial, sans-serif;
+        }
+        #gameCanvas {
+            border: 1px solid #000;
+        }
+        #videoPreview {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 160px;
+            height: 120px;
+            transform: scaleX(-1);
+        }
+        #jumpIndicator {
+            position: absolute;
+            top: 140px;
+            left: 10px;
+            width: 160px;
+            height: 20px;
+            background-color: #ddd;
+        }
+        #jumpBar {
+            height: 100%;
+            width: 0;
+            background-color: #4CAF50;
+            transition: width 0.1s;
+        }
+        #instructions {
+            text-align: center;
+            margin-top: 10px;
+        }
+        #cameraSelect {
+            position: absolute;
+            top: 170px;
+            left: 10px;
+            width: 160px;
+        }
+        #statusMessage {
+            position: absolute;
+            top: 200px;
+            left: 10px;
+            width: 160px;
+            font-size: 12px;
+            color: #535353;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <canvas id="gameCanvas" width="800" height="200"></canvas>
+        <video id="videoPreview" autoplay muted playsinline></video>
+        <div id="jumpIndicator">
+            <div id="jumpBar"></div>
+        </div>
+        <select id="cameraSelect">
+            <option value="">Select camera</option>
+        </select>
+        <div id="statusMessage"></div>
+        <div id="instructions">Jump in real life to make the dino jump!</div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const videoPreview = document.getElementById('videoPreview');
+        const jumpBar = document.getElementById('jumpBar');
+        const instructions = document.getElementById('instructions');
+        const cameraSelect = document.getElementById('cameraSelect');
+        const statusMessage = document.getElementById('statusMessage');
+
+        const GAME_SPEED = 5;
+        const GRAVITY = 0.6;
+        const JUMP_FORCE = -10;
+        const GROUND_HEIGHT = 170;
+        const DINO_WIDTH = 40;
+        const DINO_HEIGHT = 43;
+
+        let highScore = 0;
+        const hasLocalStorage = (function() {
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                return true;
+            } catch(e) {
+                return false;
+            }
+        })();
+
+        if (hasLocalStorage) {
+            const storedHighScore = localStorage.getItem('dinoHighScore');
+            if (storedHighScore) {
+                highScore = parseInt(storedHighScore, 10);
+            }
+        }
+
+        class Dino {
+            constructor() {
+                this.x = 50;
+                this.y = GROUND_HEIGHT - DINO_HEIGHT;
+                this.vy = 0;
+                this.originalY = this.y;
+                this.jumpForce = JUMP_FORCE;
+                this.grounded = true;
+                this.jumpTimer = 0;
+                this.legRaised = false;
+                this.jumpCooldown = 0;
+            }
+
+            jump() {
+                if (this.grounded && this.jumpCooldown === 0) {
+                    this.vy = this.jumpForce;
+                    this.grounded = false;
+                    this.jumpTimer = 0;
+                    this.jumpCooldown = 45;
+                }
+            }
+
+            update() {
+                this.y += this.vy;
+                if (this.y < this.originalY) {
+                    this.vy += GRAVITY;
+                    this.grounded = false;
+                } else {
+                    this.y = this.originalY;
+                    this.vy = 0;
+                    this.grounded = true;
+                }
+
+                this.jumpTimer++;
+                if (this.jumpTimer % 6 === 0) {
+                    this.legRaised = !this.legRaised;
+                }
+
+                if (this.jumpCooldown > 0) {
+                    this.jumpCooldown--;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = '#535353';
+                
+                // Body
+                ctx.fillRect(this.x, this.y, DINO_WIDTH - 10, DINO_HEIGHT - 5);
+                
+                // Neck
+                ctx.fillRect(this.x + DINO_WIDTH - 15, this.y + 5, 15, 20);
+                
+                // Head
+                ctx.fillRect(this.x + DINO_WIDTH - 10, this.y, 10, 15);
+                
+                // Eye
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(this.x + DINO_WIDTH - 5, this.y + 3, 2, 2);
+                
+                // Legs
+                ctx.fillStyle = '#535353';
+                if (this.grounded) {
+                    if (this.legRaised) {
+                        ctx.fillRect(this.x + 5, this.y + DINO_HEIGHT - 5, 5, 5);
+                        ctx.fillRect(this.x + DINO_WIDTH - 15, this.y + DINO_HEIGHT - 5, 5, 5);
+                    } else {
+                        ctx.fillRect(this.x, this.y + DINO_HEIGHT - 5, 5, 5);
+                        ctx.fillRect(this.x + DINO_WIDTH - 20, this.y + DINO_HEIGHT - 5, 5, 5);
+                    }
+                } else {
+                    ctx.fillRect(this.x + 5, this.y + DINO_HEIGHT - 5, 5, 5);
+                    ctx.fillRect(this.x + DINO_WIDTH - 15, this.y + DINO_HEIGHT - 5, 5, 5);
+                }
+
+                // Draw cooldown indicator
+                if (this.jumpCooldown > 0) {
+                    const cooldownWidth = (this.jumpCooldown / 30) * DINO_WIDTH;
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+                    ctx.fillRect(this.x, this.y - 10, cooldownWidth, 5);
+                }
+            }
+        }
+
+        class Obstacle {
+            constructor(x) {
+                this.x = x;
+                this.width = 20;
+                this.height = 40;
+                this.y = GROUND_HEIGHT - this.height;
+            }
+
+            update() {
+                this.x -= GAME_SPEED;
+            }
+
+            draw() {
+                ctx.fillStyle = '#535353';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.fillRect(this.x + 5, this.y - 10, 10, 10);
+                ctx.fillRect(this.x + 10, this.y - 5, 5, 5);
+            }
+        }
+
+        class Cloud {
+            constructor(x) {
+                this.x = x;
+                this.y = Math.random() * 100 + 20;
+                this.width = 30;
+                this.height = 15;
+            }
+
+            update() {
+                this.x -= GAME_SPEED / 2;
+            }
+
+            draw() {
+                ctx.fillStyle = '#c8c8c8';
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x + 10, this.y - 5);
+                ctx.lineTo(this.x + 20, this.y - 5);
+                ctx.lineTo(this.x + 30, this.y);
+                ctx.lineTo(this.x + 20, this.y + 5);
+                ctx.lineTo(this.x + 10, this.y + 5);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        const dino = new Dino();
+        let obstacles = [];
+        let clouds = [];
+        let score = 0;
+        let gameOver = false;
+        let canRestart = false;
+        let restartTimer = 0;
+
+        function spawnObstacle() {
+            const lastObstacle = obstacles[obstacles.length - 1];
+            const minDistance = 300;
+            const maxDistance = 500;
+            const distance = Math.floor(Math.random() * (maxDistance - minDistance + 1) + minDistance);
+
+            if (!lastObstacle || canvas.width - lastObstacle.x >= distance) {
+                obstacles.push(new Obstacle(canvas.width));
+            }
+        }
+
+        function spawnCloud() {
+            const lastCloud = clouds[clouds.length - 1];
+            const minDistance = 200;
+            const maxDistance = 400;
+            const distance = Math.floor(Math.random() * (maxDistance - minDistance + 1) + minDistance);
+
+            if (!lastCloud || canvas.width - lastCloud.x >= distance) {
+                clouds.push(new Cloud(canvas.width));
+            }
+        }
+
+        function drawGround() {
+            ctx.fillStyle = '#535353';
+            ctx.fillRect(0, GROUND_HEIGHT, canvas.width, 2);
+
+            for (let i = 0; i < canvas.width; i += 5) {
+                ctx.fillRect(i, GROUND_HEIGHT + 2, 1, 1);
+            }
+        }
+
+        function checkCollision(dino, obstacle) {
+            return (
+                dino.x < obstacle.x + obstacle.width &&
+                dino.x + DINO_WIDTH > obstacle.x &&
+                dino.y < obstacle.y + obstacle.height &&
+                dino.y + DINO_HEIGHT > obstacle.y
+            );
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (!gameOver) {
+                dino.update();
+                spawnObstacle();
+                spawnCloud();
+
+                obstacles = obstacles.filter(obstacle => obstacle.x > -obstacle.width);
+                clouds = clouds.filter(cloud => cloud.x > -cloud.width);
+
+                obstacles.forEach(obstacle => {
+                    obstacle.update();
+                    if (checkCollision(dino, obstacle)) {
+                        gameOver = true;
+                        if (score > highScore) {
+                            highScore = score;
+                            if (hasLocalStorage) {
+                                localStorage.setItem('dinoHighScore', highScore.toString());
+                            }
+                        }
+                    }
+                });
+
+                clouds.forEach(cloud => cloud.update());
+
+                score++;
+            } else {
+                restartTimer++;
+                if (restartTimer >= 60) {
+                    canRestart = true;
+                }
+            }
+
+            // Draw game elements
+            clouds.forEach(cloud => cloud.draw());
+            drawGround();
+            obstacles.forEach(obstacle => obstacle.draw());
+            dino.draw();
+
+            // Draw score and high score
+            ctx.fillStyle = '#535353';
+            ctx.font = '16px Arial';
+            ctx.fillText(`Score: ${score}`, 650, 30);
+            ctx.fillText(`High Score: ${highScore}`, 650, 50);
+
+            if (gameOver) {
+                ctx.fillStyle = '#535353';
+                ctx.font = '24px Arial';
+                ctx.fillText('Game Over', 350, 100);
+                
+                if (canRestart) {
+                    ctx.fillText('Jump to Restart', 330, 130);
+                } else {
+                    ctx.fillText('Get ready to jump...', 310, 130);
+                }
+
+                if (score === highScore) {
+                    ctx.fillStyle = '#FFD700';
+                    ctx.fillText('New High Score!', 320, 160);
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Camera setup
+        let video;
+        let lastImageData;
+        let jumpDetected = false;
+        let currentStream;
+
+        async function setupCamera(deviceId = null) {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            const constraints = {
+                video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'user' }
+            };
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                currentStream = stream;
+                video = document.createElement('video');
+                video.srcObject = stream;
+                video.play();
+
+                videoPreview.srcObject = stream;
+
+                video.onloadedmetadata = function(e) {
+                    processFrame();
+                };
+                statusMessage.textContent = 'Camera switched successfully';
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                statusMessage.textContent = 'Error accessing camera. Please try again.';
+                alert('Unable to access the camera. Please make sure you have a camera connected and you\'ve granted permission to use it.');
+            }
+        }
+
+        function processFrame() {
+            if (video.paused || video.ended) return;
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 320;
+            tempCanvas.height = 240;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+
+            if (lastImageData) {
+                const diff = detectMotion(imageData, lastImageData);
+                if (diff > 7) {
+                    jumpDetected = true;
+                    jumpBar.style.width = '100%';
+                    if (!gameOver) {
+                        dino.jump();
+                    } else if (canRestart) {
+                        restartGame();
+                    }
+                } else {
+                    jumpDetected = false;
+                    jumpBar.style.width = '0%';
+                }
+            }
+
+            lastImageData = imageData;
+
+            requestAnimationFrame(processFrame);
+        }
+
+        function detectMotion(imageData1, imageData2) {
+            const data1 = imageData1.data;
+            const data2 = imageData2.data;
+            let diff = 0;
+
+            for (let i = 0; i < data1.length; i += 4) {
+                diff += Math.abs(data1[i] - data2[i]);
+            }
+
+            return diff / (imageData1.width * imageData1.height);
+        }
+
+        function restartGame() {
+            dino.y = dino.originalY;
+            obstacles = [];
+            clouds = [];
+            score = 0;
+            gameOver = false;
+            canRestart = false;
+            restartTimer = 0;
+            instructions.textContent = 'Jump in real life to make the dino jump!';
+        }
+
+        // Populate camera select
+        async function populateCameraSelect() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                
+                cameraSelect.innerHTML = '<option value="">Select camera</option>';
+                
+                videoDevices.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    
+                    // Improved labeling for different devices
+                    if (device.label) {
+                        option.text = device.label;
+                    } else if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
+                        // iOS-specific naming
+                        if (index === 0) option.text = 'Front Camera';
+                        else if (index === 1) option.text = 'Back Camera';
+                        else option.text = `Camera ${index + 1}`;
+                    } else {
+                        option.text = `Camera ${index + 1}`;
+                    }
+                    
+                    cameraSelect.appendChild(option);
+                });
+
+                cameraSelect.onchange = function() {
+                    if (this.value) {
+                        setupCamera(this.value);
+                    }
+                };
+
+                if (videoDevices.length > 0) {
+                    setupCamera(videoDevices[0].deviceId);
+                } else {
+                    statusMessage.textContent = 'No cameras found. Please connect a camera and refresh the page.';
+                }
+            } catch (err) {
+                console.error('Error enumerating devices:', err);
+                statusMessage.textContent = 'Error detecting cameras. Please check permissions and try again.';
+            }
+        }
+
+        // Handle orientation changes
+        window.addEventListener('orientationchange', function() {
+            setTimeout(function() {
+                // Re-setup camera with current device
+                if (cameraSelect.value) {
+                    setupCamera(cameraSelect.value);
+                }
+            }, 200);
+        });
+
+        // Start the game
+        populateCameraSelect();
+        gameLoop();
+
+        // Check and request permissions if needed
+        async function checkAndRequestPermissions() {
+            try {
+                const result = await navigator.permissions.query({ name: 'camera' });
+                if (result.state === 'granted') {
+                    populateCameraSelect();
+                } else if (result.state === 'prompt') {
+                    statusMessage.textContent = 'Please grant camera permission when prompted.';
+                    await navigator.mediaDevices.getUserMedia({ video: true });
+                    populateCameraSelect();
+                } else {
+                    statusMessage.textContent = 'Camera permission denied. Please enable it in your browser settings.';
+                }
+            } catch (err) {
+                console.error('Error checking permissions:', err);
+                statusMessage.textContent = 'Unable to check camera permissions. Please ensure your browser supports this feature.';
+            }
+        }
+
+        checkAndRequestPermissions();
+    </script>
+</body>
+</html>

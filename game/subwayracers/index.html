@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subway Racers</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        #gameCanvas {
+            display: block;
+        }
+        #gameInfo {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(44, 62, 80, 0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+            color: #ecf0f1;
+            font-size: 18px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameInfo">
+        Pontuação: <span id="score">0</span><br>
+        Recorde: <span id="highScore">0</span>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const highScoreElement = document.getElementById('highScore');
+
+        let gameState = 'start';
+        let player;
+        let lanes;
+        let obstacles = [];
+        let score = 0;
+        let highScore = 0;
+        let gameSpeed = 1.5;
+        let backgroundY = 0;
+        let demoPlayer;
+        let demoObstacles = [];
+        let demoSpeed = 1.5;
+        let obstacleSpawnRate;
+        let lastFrameTime = 0;
+        let gameOverSnapshot;
+        let distance = 0;
+        const maxGameSpeed = 3.5; // Velocidade máxima do jogo
+        let lastSpeedIncreaseTime = 0;
+        const speedIncreaseInterval = 4500; // Aumentar a velocidade a cada 5 segundos
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initGame();
+        }
+
+        function initGame() {
+            const laneWidth = 75;
+            const laneCount = Math.max(5, Math.floor(canvas.width / laneWidth));
+            lanes = Array.from({length: laneCount}, (_, i) => (i + 0.5) * (canvas.width / laneCount));
+
+            player = {
+                width: 30,
+                height: 50,
+                speed: 10,
+                lane: Math.floor(laneCount / 2)
+            };
+            player.x = lanes[player.lane] - player.width / 2;
+            player.y = canvas.height - player.height - 20;
+
+            demoPlayer = { ...player, targetLane: player.lane, movingToLane: false, lastMoveTime: 0 };
+
+            obstacleSpawnRate = 0.15 * Math.pow(laneCount - 2, 1.8);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function isLocalStorageAvailable() {
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                return true;
+            } catch(e) {
+                return false;
+            }
+        }
+
+        function loadHighScore() {
+            if (isLocalStorageAvailable()) {
+                let savedScore = localStorage.getItem('highScore');
+                if (savedScore !== null) {
+                    highScore = parseInt(savedScore, 10);
+                    highScoreElement.textContent = highScore;
+                }
+            }
+        }
+
+        loadHighScore();
+
+        function drawStartScreen() {
+            drawBackground(true);
+            drawObstacles(true);
+            drawPlayer(demoPlayer.x, demoPlayer.y, demoPlayer.width, demoPlayer.height);
+            moveObstacles(true);
+            createObstacle(true);
+            moveDemoPlayer();
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#f39c12';
+            ctx.font = 'bold 40px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Subway', canvas.width / 2, canvas.height / 2 - 50);
+            ctx.fillText('Racers', canvas.width / 2, canvas.height / 2);
+
+            ctx.fillStyle = '#2ecc71';
+            ctx.fillRect(canvas.width / 2 - 75, canvas.height / 2 + 50, 150, 50);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '24px Arial';
+            ctx.fillText('Jogar', canvas.width / 2, canvas.height / 2 + 85);
+        }
+
+        function moveDemoPlayer() {
+            const safeDistance = 300;
+            const laneScores = Array(lanes.length).fill(0);
+
+            demoObstacles.forEach(obstacle => {
+                if (obstacle.y < demoPlayer.y && obstacle.y > demoPlayer.y - safeDistance) {
+                    laneScores[obstacle.lane] -= (safeDistance - (obstacle.y - demoPlayer.y));
+                }
+            });
+
+            if (!demoPlayer.movingToLane && Date.now() - demoPlayer.lastMoveTime > 200) {
+                let bestLane = demoPlayer.lane;
+                let bestScore = laneScores[demoPlayer.lane];
+
+                for (let lane = 0; lane < lanes.length; lane++) {
+                    if (laneScores[lane] > bestScore) {
+                        bestScore = laneScores[lane];
+                        bestLane = lane;
+                    }
+                }
+
+                if (bestLane !== demoPlayer.lane) {
+                    demoPlayer.targetLane = bestLane > demoPlayer.lane ? demoPlayer.lane + 1 : demoPlayer.lane - 1;
+                    demoPlayer.movingToLane = true;
+                    demoPlayer.lastMoveTime = Date.now();
+                }
+            }
+
+            if (demoPlayer.movingToLane) {
+                const targetX = lanes[demoPlayer.targetLane] - demoPlayer.width / 2;
+                demoPlayer.x += (targetX - demoPlayer.x) * 0.2;
+
+                if (Math.abs(demoPlayer.x - targetX) < 1) {
+                    demoPlayer.x = targetX;
+                    demoPlayer.lane = demoPlayer.targetLane;
+                    demoPlayer.movingToLane = false;
+                }
+            }
+        }
+
+        function drawBackground(isDemo = false) {
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = '#ecf0f1';
+            ctx.lineWidth = 2;
+            for (let i = 0; i <= lanes.length; i++) {
+                let x = (i / lanes.length) * canvas.width;
+                ctx.beginPath();
+                ctx.setLineDash([20, 20]);
+                ctx.moveTo(x, (backgroundY % 40) - 40);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+
+            backgroundY += 5 * (isDemo ? demoSpeed : gameSpeed);
+        }
+
+        function drawPlayer(x, y, width, height) {
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(x, y, width, height);
+            
+            ctx.fillStyle = '#f39c12';
+            ctx.fillRect(x + 5, y + 10, width - 10, 5);
+            ctx.fillRect(x + 5, y + height - 15, width - 10, 5);
+        }
+
+        function drawObstacles(isDemo = false) {
+            const currentObstacles = isDemo ? demoObstacles : obstacles;
+            currentObstacles.forEach(obstacle => {
+                ctx.fillStyle = '#2ecc71';
+                ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+                
+                ctx.fillStyle = '#27ae60';
+                ctx.fillRect(obstacle.x + 5, obstacle.y + 5, obstacle.width - 10, obstacle.height - 10);
+            });
+        }
+
+        function moveObstacles(isDemo = false) {
+            const currentObstacles = isDemo ? demoObstacles : obstacles;
+            const currentSpeed = isDemo ? demoSpeed : gameSpeed;
+            currentObstacles.forEach(obstacle => {
+                obstacle.y += 5 * currentSpeed;
+                if (obstacle.y > canvas.height) {
+                    currentObstacles.splice(currentObstacles.indexOf(obstacle), 1);
+                }
+            });
+        }
+
+        function createObstacle(isDemo = false) {
+            const currentObstacles = isDemo ? demoObstacles : obstacles;
+            const verticalSafeDistance = 80;
+            if (Math.random() < obstacleSpawnRate) {
+                const occupiedLanes = currentObstacles.filter(o => o.y > -100 && o.y < canvas.height).map(o => o.lane);
+                const availableLanes = Array.from({length: lanes.length}, (_, i) => i).filter(lane => 
+                    !occupiedLanes.includes(lane) &&
+                    !currentObstacles.some(o => Math.abs(o.y) < verticalSafeDistance)
+                );
+                
+                if (availableLanes.length > 0) {
+                    const lane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
+                    currentObstacles.push({
+                        x: lanes[lane] - 15,
+                        y: -30,
+                        width: 30,
+                        height: 30,
+                        lane: lane
+                    });
+                }
+            }
+        }
+
+        function checkCollision() {
+            return obstacles.some(obstacle => 
+                player.x < obstacle.x + obstacle.width &&
+                player.x + player.width > obstacle.x &&
+                player.y < obstacle.y + obstacle.height &&
+                player.y + player.height > obstacle.y
+            );
+        }
+
+        function drawGameOverScreen() {
+            ctx.filter = 'blur(5px)';
+            ctx.drawImage(gameOverSnapshot, 0, 0);
+            ctx.filter = 'none';
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#f39c12';
+            ctx.font = 'bold 40px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 50);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '24px Arial';
+            ctx.fillText(`Pontuação: ${score}`, canvas.width / 2, canvas.height / 2);
+            ctx.fillText(`Recorde: ${highScore}`, canvas.width / 2, canvas.height / 2 + 40);
+
+            ctx.fillStyle = '#2ecc71';
+            ctx.fillRect(canvas.width / 2 - 100, canvas.height / 2 + 100, 200, 50);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '24px Arial';
+            ctx.fillText('Jogar Novamente', canvas.width / 2, canvas.height / 2 + 135);
+        }
+
+        function updateHighScore() {
+            if (score > highScore) {
+                highScore = score;
+                highScoreElement.textContent = highScore;
+                if (isLocalStorageAvailable()) {
+                    localStorage.setItem('highScore', highScore.toString());
+                }
+            }
+        }
+
+        function resetGame() {
+            obstacles = [];
+            score = 0;
+            distance = 0;
+            gameSpeed = 1.5;
+            lastSpeedIncreaseTime = 0;
+            scoreElement.textContent = score;
+            player.lane = Math.floor(lanes.length / 2);
+            player.x = lanes[player.lane] - player.width / 2;
+        }
+
+        function gameLoop(currentTime) {
+            const deltaTime = currentTime - lastFrameTime;
+            lastFrameTime = currentTime;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (gameState === 'start') {
+                drawStartScreen();
+            } else if (gameState === 'play') {
+                drawBackground();
+                drawPlayer(player.x, player.y, player.width, player.height);
+                drawObstacles();
+                moveObstacles();
+                createObstacle();
+
+                const targetX = lanes[player.lane] - player.width / 2;
+                player.x += (targetX - player.x) * 0.2;
+
+                distance += gameSpeed;
+                score = Math.floor(distance / 10);
+                scoreElement.textContent = score;
+
+                // Aumentar a velocidade gradualmente
+                if (currentTime - lastSpeedIncreaseTime > speedIncreaseInterval) {
+                    gameSpeed = Math.min(maxGameSpeed, gameSpeed + 0.1);
+                    lastSpeedIncreaseTime = currentTime;
+                }
+
+                if (checkCollision()) {
+                    updateHighScore();
+                    gameOverSnapshot = new Image();
+                    gameOverSnapshot.src = canvas.toDataURL();
+                    gameState = 'gameOver';
+                }
+            } else if (gameState === 'gameOver') {
+                drawGameOverScreen();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            if (gameState === 'start') {
+                if (x >= canvas.width / 2 - 75 && x <= canvas.width / 2 + 75 && 
+                    y >= canvas.height / 2 + 50 && y <= canvas.height / 2 + 100) {
+                    resetGame();
+                    gameState = 'play';
+                }
+            } else if (gameState === 'gameOver') {
+                if (x >= canvas.width / 2 - 100 && x <= canvas.width / 2 + 100 && 
+                    y >= canvas.height / 2 + 100 && y <= canvas.height / 2 + 150) {
+                    resetGame();
+                    gameState = 'play';
+                }
+            }
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+
+            if (gameState === 'start') {
+                if (x >= canvas.width / 2 - 75 && x <= canvas.width / 2 + 75 && 
+                    y >= canvas.height / 2 + 50 && y <= canvas.height / 2 + 100) {
+                    resetGame();
+                    gameState = 'play';
+                }
+            } else if (gameState === 'gameOver') {
+                if (x >= canvas.width / 2 - 100 && x <= canvas.width / 2 + 100 && 
+                    y >= canvas.height / 2 + 100 && y <= canvas.height / 2 + 150) {
+                    resetGame();
+                    gameState = 'play';
+                }
+            }
+        });
+
+        let touchStartX;
+        canvas.addEventListener('touchstart', (e) => {
+            if (gameState === 'play') {
+                touchStartX = e.touches[0].clientX;
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (gameState === 'play') {
+                if (e.key === 'ArrowLeft' && player.lane > 0) {
+                    player.lane--;
+                } else if (e.key === 'ArrowRight' && player.lane < lanes.length - 1) {
+                    player.lane++;
+                }
+            }
+        });
+
+        gameLoop();
+    </script>
+</body>
+</html>

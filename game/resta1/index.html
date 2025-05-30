@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resta 1 by trem</title>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --board-color: #16213e;
+            --board-border: #0f3460;
+            --piece-color: #4361ee;
+            --hole-color: #1f4287;
+            --highlight-color: rgba(67, 97, 238, 0.3);
+            --text-color: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        #game-container {
+            text-align: center;
+            padding: 20px;
+            border-radius: 15px;
+            background: rgba(26, 26, 46, 0.7);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            width: 90vmin;
+            height: 90vmin;
+            max-width: 600px;
+            max-height: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--board-color);
+            border: 10px solid var(--board-border);
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(67, 97, 238, 0.2);
+        }
+
+        .cell {
+            position: relative;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .cell::before {
+            content: '';
+            position: absolute;
+            top: 10%;
+            left: 10%;
+            right: 10%;
+            bottom: 10%;
+            background-color: var(--hole-color);
+            border-radius: 50%;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .cell.piece::after {
+            content: '';
+            position: absolute;
+            top: 5%;
+            left: 5%;
+            right: 5%;
+            bottom: 5%;
+            background: radial-gradient(circle at 30% 30%, var(--piece-color), #2a4cde);
+            border-radius: 50%;
+            box-shadow: 
+                2px 2px 5px rgba(0, 0, 0, 0.3),
+                inset 2px 2px 5px rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .cell.piece:hover::after {
+            transform: scale(1.1);
+        }
+
+        .cell.piece.selected::after {
+            box-shadow: 
+                0 0 10px var(--piece-color),
+                0 0 20px var(--piece-color),
+                inset 2px 2px 5px rgba(255, 255, 255, 0.3);
+            animation: pieceGlow 1.5s infinite alternate;
+        }
+
+        @keyframes pieceGlow {
+            0% { box-shadow: 0 0 5px var(--piece-color), 0 0 10px var(--piece-color); }
+            100% { box-shadow: 0 0 20px var(--piece-color), 0 0 30px var(--piece-color); }
+        }
+
+        .cell.highlighted::before {
+            background-color: var(--highlight-color);
+        }
+
+        .invalid {
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        #info {
+            margin-top: 20px;
+            font-size: 1.2em;
+        }
+
+        button {
+            margin-top: 15px;
+            padding: 12px 25px;
+            font-size: 1em;
+            background-color: var(--piece-color);
+            color: var(--text-color);
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #2a4cde;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Células não jogáveis */
+        .cell:nth-child(1), .cell:nth-child(2), .cell:nth-child(6), .cell:nth-child(7),
+        .cell:nth-child(8), .cell:nth-child(9), .cell:nth-child(13), .cell:nth-child(14),
+        .cell:nth-child(36), .cell:nth-child(37), .cell:nth-child(41), .cell:nth-child(42),
+        .cell:nth-child(43), .cell:nth-child(44), .cell:nth-child(48), .cell:nth-child(49) {
+            visibility: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="board"></div>
+        <div id="info">Resta: <span id="piece-count">32</span></div>
+        <button id="restart">Reiniciar Jogo</button>
+    </div>
+
+    <script>
+        const board = document.getElementById('board');
+        const pieceCount = document.getElementById('piece-count');
+        const restartButton = document.getElementById('restart');
+        let selectedCell = null;
+        let pieces = 32;
+
+        function createCell(index) {
+            const cell = document.createElement('div');
+            cell.classList.add('cell');
+            if (index !== 24) {
+                cell.classList.add('piece');
+            }
+            cell.dataset.index = index;
+            cell.addEventListener('click', handleCellClick);
+            return cell;
+        }
+
+        function initBoard() {
+            board.innerHTML = '';
+            pieces = 32;
+            for (let i = 0; i < 49; i++) {
+                board.appendChild(createCell(i));
+            }
+            updatePieceCount();
+            console.log('Board initialized');
+        }
+
+        function updatePieceCount() {
+            pieceCount.textContent = pieces;
+        }
+
+        function isValidMove(start, end) {
+            const diff = Math.abs(start - end);
+            const middle = (start + end) / 2;
+            const middleCell = document.querySelector(`[data-index="${middle}"]`);
+            const endCell = document.querySelector(`[data-index="${end}"]`);
+            return (diff === 2 || diff === 14) && 
+                   middleCell && middleCell.classList.contains('piece') &&
+                   endCell && !endCell.classList.contains('piece');
+        }
+
+        function makeMove(start, end) {
+            const startCell = document.querySelector(`[data-index="${start}"]`);
+            const endCell = document.querySelector(`[data-index="${end}"]`);
+            const middleCell = document.querySelector(`[data-index="${(start + end) / 2}"]`);
+
+            startCell.classList.remove('piece', 'selected');
+            endCell.classList.add('piece');
+            middleCell.classList.remove('piece');
+
+            pieces -= 1;
+            updatePieceCount();
+
+            // Animação de movimento
+            endCell.animate([
+                { transform: 'scale(1.2)' },
+                { transform: 'scale(1)' }
+            ], {
+                duration: 300,
+                easing: 'ease-out'
+            });
+
+            console.log(`Move made from ${start} to ${end}`);
+        }
+
+        function highlightPossibleMoves(index) {
+            const possibleMoves = [index - 2, index + 2, index - 14, index + 14];
+            possibleMoves.forEach(move => {
+                if (move >= 0 && move < 49 && isValidMove(index, move)) {
+                    document.querySelector(`[data-index="${move}"]`).classList.add('highlighted');
+                }
+            });
+        }
+
+        function removeHighlights() {
+            document.querySelectorAll('.highlighted').forEach(cell => cell.classList.remove('highlighted'));
+        }
+
+        function handleCellClick(e) {
+            const cell = e.target;
+            const index = parseInt(cell.dataset.index);
+
+            console.log(`Cell clicked: ${index}`);
+
+            if (selectedCell === null) {
+                if (cell.classList.contains('piece')) {
+                    selectedCell = index;
+                    cell.classList.add('selected');
+                    highlightPossibleMoves(index);
+                    console.log(`Piece selected: ${index}`);
+                }
+            } else {
+                if (isValidMove(selectedCell, index)) {
+                    makeMove(selectedCell, index);
+                    removeHighlights();
+                    selectedCell = null;
+                } else if (cell.classList.contains('piece')) {
+                    document.querySelector(`[data-index="${selectedCell}"]`).classList.remove('selected');
+                    removeHighlights();
+                    selectedCell = index;
+                    cell.classList.add('selected');
+                    highlightPossibleMoves(index);
+                    console.log(`New piece selected: ${index}`);
+                } else {
+                    showInvalidMoveAnimation(cell);
+                    console.log('Invalid move');
+                }
+            }
+        }
+
+        function showInvalidMoveAnimation(cell) {
+            cell.classList.add('invalid');
+            setTimeout(() => cell.classList.remove('invalid'), 500);
+        }
+
+        restartButton.addEventListener('click', initBoard);
+
+        initBoard();
+    </script>
+</body>
+</html>

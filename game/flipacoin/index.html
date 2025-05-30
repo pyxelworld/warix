@@ -1,0 +1,268 @@
+<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+    <title>Cara ou Coroa Premium</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&amp;display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #000428, #004e92);
+            color: white;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 90%;
+            width: 400px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(to right, #ffd700, #ffa500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .coin {
+            width: 200px;
+            height: 200px;
+            background: linear-gradient(45deg, #ffd700, #ffb700);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            margin: 2rem auto;
+            position: relative;
+            transform-style: preserve-3d;
+            box-shadow: 
+                inset 0 0 15px rgba(0,0,0,0.3),
+                0 0 30px rgba(255, 215, 0, 0.5);
+        }
+
+        .coin::before {
+            content: '';
+            position: absolute;
+            width: 90%;
+            height: 90%;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #ffd700, #ffb700);
+            filter: brightness(1.2);
+            z-index: -1;
+        }
+
+        .flip {
+            animation: flip 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes flip {
+            0% { transform: rotateY(0) scale(1); }
+            50% { transform: rotateY(360deg) scale(1.2); }
+            100% { transform: rotateY(720deg) scale(1); }
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+        }
+
+        .stat-box {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #ffd700;
+        }
+
+        button {
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            background: linear-gradient(45deg, #ffd700, #ffa500);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #000;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        #result {
+            font-size: 2rem;
+            margin: 1rem 0;
+            font-weight: 600;
+            background: linear-gradient(to right, #fff, #ffd700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .particle {
+            position: absolute;
+            background: rgba(255, 215, 0, 0.5);
+            border-radius: 50%;
+            animation: float 3s infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+            50% { opacity: 0.5; }
+            100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .coin {
+                width: 150px;
+                height: 150px;
+                font-size: 2rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            button {
+                padding: 0.8rem 1.6rem;
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="particles" id="particles"></div>
+    <div class="container">
+        <h1>Cara ou Coroa</h1>
+        <div class="coin" id="coin">?</div>
+        <div id="result"></div>
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-label">Cara</div>
+                <div class="stat-value" id="heads">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Coroa</div>
+                <div class="stat-value" id="tails">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Total</div>
+                <div class="stat-value" id="total">0</div>
+            </div>
+        </div>
+        <button onclick="flipCoin()">Girar Moeda</button>
+    </div>
+
+    <script>
+        let headsCount = 0;
+        let tailsCount = 0;
+
+        function createParticles() {
+            const particles = document.getElementById('particles');
+            particles.innerHTML = '';
+            for(let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + 'vw';
+                particle.style.width = Math.random() * 5 + 'px';
+                particle.style.height = particle.style.width;
+                particle.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                particle.style.animationDelay = (Math.random() * 2) + 's';
+                particles.appendChild(particle);
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('heads').textContent = headsCount;
+            document.getElementById('tails').textContent = tailsCount;
+            document.getElementById('total').textContent = headsCount + tailsCount;
+        }
+
+        function flipCoin() {
+            const coin = document.getElementById('coin');
+            const result = document.getElementById('result');
+            const button = document.querySelector('button');
+            
+            button.disabled = true;
+            coin.classList.remove('flip');
+            void coin.offsetWidth;
+            coin.classList.add('flip');
+            
+            coin.textContent = '?';
+            result.textContent = '';
+            
+            setTimeout(() => {
+                const random = Math.random();
+                const face = random < 0.5 ? 'CARA' : 'COROA';
+                
+                if(face === 'CARA') {
+                    coin.textContent = '👆';
+                    headsCount++;
+                } else {
+                    coin.textContent = '👑';
+                    tailsCount++;
+                }
+                
+                result.textContent = face;
+                updateStats();
+                button.disabled = false;
+                createParticles();
+            }, 1400);
+        }
+
+        createParticles();
+    </script>
+
+
+</body></html>

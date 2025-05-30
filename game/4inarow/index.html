@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4 In A Row</title>
+    <style>
+        :root {
+            --primary-color: #ff3333;
+            --secondary-color: #ffff33;
+            --background-color: #1a1a1a;
+            --board-color: #333333;
+            --slot-color: #cccccc;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--slot-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 2.5em;
+            text-shadow: 0 0 10px rgba(255, 51, 51, 0.5);
+        }
+
+        .status-bar {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            transition: background-color 0.3s;
+        }
+
+        .board {
+            display: inline-grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            background-color: var(--board-color);
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(255, 51, 51, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .slot {
+            width: 60px;
+            height: 60px;
+            background-color: var(--slot-color);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .slot:hover {
+            transform: scale(1.1);
+        }
+
+        .slot::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 90%;
+            height: 90%;
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .slot:hover::after {
+            opacity: 1;
+        }
+
+        .red, .yellow {
+            animation: dropPiece 0.5s ease-in-out;
+        }
+
+        .red {
+            background-color: var(--primary-color);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.3), 0 0 10px rgba(255,51,51,0.5);
+        }
+
+        .yellow {
+            background-color: var(--secondary-color);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.3), 0 0 10px rgba(255,255,51,0.5);
+        }
+
+        @keyframes dropPiece {
+            0% { transform: translateY(-300px); }
+            100% { transform: translateY(0); }
+        }
+
+        .controls {
+            margin-top: 20px;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            margin: 0 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s, transform 0.3s;
+            font-size: 1em;
+        }
+
+        button:hover {
+            background-color: #cc0000;
+            transform: scale(1.05);
+        }
+
+        button.active {
+            background-color: #cc0000;
+            box-shadow: 0 0 10px rgba(255,51,51,0.5);
+        }
+
+        #message {
+            margin-top: 20px;
+            font-size: 1.2em;
+            font-weight: bold;
+            height: 1.5em;
+        }
+
+        .winner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
+            color: #fff;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+
+        .winner-overlay.show {
+            opacity: 1;
+        }
+
+        @media (max-width: 600px) {
+            .board {
+                grid-template-columns: repeat(7, 1fr);
+                gap: 5px;
+                padding: 5px;
+            }
+
+            .slot {
+                width: 40px;
+                height: 40px;
+            }
+
+            button {
+                padding: 8px 16px;
+                font-size: 0.9em;
+            }
+        }
+
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #f0f0f0;
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>4 In A Row</h1>
+        <div class="status-bar" id="statusBar">Current Mode: 2 Players</div>
+        <div class="board" id="board">
+            <div class="winner-overlay" id="winnerOverlay"></div>
+        </div>
+        <div class="controls">
+            <button id="twoPlayerMode" class="active">2 Players</button>
+            <button id="vsComputerMode">vs Computer</button>
+        </div>
+        <div id="message"></div>
+    </div>
+    <script>
+        const board = document.getElementById('board');
+        const message = document.getElementById('message');
+        const twoPlayerModeBtn = document.getElementById('twoPlayerMode');
+        const vsComputerModeBtn = document.getElementById('vsComputerMode');
+        const statusBar = document.getElementById('statusBar');
+        const winnerOverlay = document.getElementById('winnerOverlay');
+
+        let currentPlayer = 1;
+        let gameBoard = Array(6).fill().map(() => Array(7).fill(0));
+        let gameMode = '2players';
+        let gameActive = true;
+
+        function createBoard() {
+            board.innerHTML = '<div class="winner-overlay" id="winnerOverlay"></div>';
+            for (let row = 0; row < 6; row++) {
+                for (let col = 0; col < 7; col++) {
+                    const slot = document.createElement('div');
+                    slot.className = 'slot';
+                    slot.dataset.col = col;
+                    slot.addEventListener('click', () => dropPiece(col));
+                    board.appendChild(slot);
+                }
+            }
+        }
+
+        function dropPiece(col) {
+            if (!gameActive || gameBoard[0][col] !== 0) return;
+            
+            let row = 5;
+            while (row >= 0 && gameBoard[row][col] !== 0) {
+                row--;
+            }
+
+            gameBoard[row][col] = currentPlayer;
+            updateBoard();
+
+            if (checkWin(row, col)) {
+                endGame(`Player ${currentPlayer} wins!`);
+            } else if (checkDraw()) {
+                endGame("It's a draw!");
+            } else {
+                currentPlayer = currentPlayer === 1 ? 2 : 1;
+                message.textContent = `Player ${currentPlayer}'s turn`;
+
+                if (gameMode === 'vsComputer' && currentPlayer === 2) {
+                    setTimeout(computerMove, 500);
+                }
+            }
+        }
+
+        function updateBoard() {
+            const slots = document.querySelectorAll('.slot');
+            gameBoard.forEach((row, rowIndex) => {
+                row.forEach((cell, colIndex) => {
+                    const index = rowIndex * 7 + colIndex;
+                    slots[index].className = 'slot';
+                    if (cell === 1) slots[index].classList.add('red');
+                    if (cell === 2) slots[index].classList.add('yellow');
+                });
+            });
+        }
+
+        function checkWin(row, col) {
+            const directions = [
+                [0, 1], [1, 0], [1, 1], [1, -1]
+            ];
+
+            return directions.some(([dx, dy]) => {
+                return [1, -1].some(direction => {
+                    let count = 0;
+                    let r = row;
+                    let c = col;
+                    while (
+                        r >= 0 && r < 6 && c >= 0 && c < 7 &&
+                        gameBoard[r][c] === currentPlayer
+                    ) {
+                        count++;
+                        r += dx * direction;
+                        c += dy * direction;
+                    }
+                    return count >= 4;
+                });
+            });
+        }
+
+        function checkDraw() {
+            return gameBoard[0].every(cell => cell !== 0);
+        }
+
+        function endGame(message) {
+            gameActive = false;
+            winnerOverlay.textContent = message;
+            winnerOverlay.classList.add('show');
+            createConfetti();
+        }
+
+        function computerMove() {
+            if (!gameActive) return;
+            
+            const availableCols = gameBoard[0].reduce((acc, cell, index) => {
+                if (cell === 0) acc.push(index);
+                return acc;
+            }, []);
+
+            const randomCol = availableCols[Math.floor(Math.random() * availableCols.length)];
+            dropPiece(randomCol);
+        }
+
+        function resetGame() {
+            gameBoard = Array(6).fill().map(() => Array(7).fill(0));
+            currentPlayer = 1;
+            message.textContent = "Player 1's turn";
+            gameActive = true;
+            winnerOverlay.classList.remove('show');
+            createBoard();
+        }
+
+        function setGameMode(mode) {
+            gameMode = mode;
+            resetGame();
+            statusBar.textContent = `Current Mode: ${mode === '2players' ? '2 Players' : 'vs Computer'}`;
+            twoPlayerModeBtn.classList.toggle('active', mode === '2players');
+            vsComputerModeBtn.classList.toggle('active', mode === 'vsComputer');
+        }
+
+        function createConfetti() {
+            const colors = ['#ff3333', '#ffff33', '#33ff33', '#3333ff', '#ff33ff'];
+            for (let i = 0; i < 100; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = `${Math.random() * 100}%`;
+                confetti.style.top = `${Math.random() * 100}%`;
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+                board.appendChild(confetti);
+
+                animateConfetti(confetti);
+            }
+        }
+
+        function animateConfetti(confetti) {
+            let opacity = 1;
+            let position = -20;
+            let rotation = Math.random() * 360;
+
+            function animate() {
+                if (opacity <= 0) {
+                    confetti.remove();
+                    return;
+                }
+
+                opacity -= 0.02;
+                position += 2;
+                rotation += 5;
+
+                confetti.style.opacity = opacity;
+                confetti.style.transform = `translateY(${position}px) rotate(${rotation}deg)`;
+
+                requestAnimationFrame(animate);
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        twoPlayerModeBtn.addEventListener('click', () => setGameMode('2players'));
+        vsComputerModeBtn.addEventListener('click', () => setGameMode('vsComputer'));
+
+        createBoard();
+        message.textContent = "Player 1's turn";
+    </script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forquinha</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f9;
+        }
+        #game {
+            text-align: center;
+        }
+        #word {
+            font-size: 2em;
+            letter-spacing: 0.5em;
+            margin-bottom: 20px;
+        }
+        #letters {
+            margin: 20px 0;
+        }
+        #message {
+            margin-top: 20px;
+            font-size: 1.5em;
+        }
+        #hangman {
+            margin: 20px 0;
+        }
+        .keyboard {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 400px;
+            margin: 20px 0;
+        }
+        .key {
+            margin: 5px;
+            padding: 10px 15px;
+            font-size: 1em;
+            cursor: pointer;
+            background-color: #ddd;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .key:disabled {
+            background-color: #bbb;
+            cursor: not-allowed;
+        }
+        .key:hover:not(:disabled) {
+            background-color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div id="game">
+        <h1>Forquinha</h1>
+        <div id="word">_ _ _ _ _</div>
+        <div id="letters">Tentativas: </div>
+        <div id="hangman">Erros restantes: 6</div>
+        <div class="keyboard" id="keyboard"></div>
+        <div id="message"></div>
+        <button onclick="reset()">Reiniciar</button>
+    </div>
+
+    <script>
+        const words = [
+            "ABACAXI", "ELEFANTE", "COMPUTADOR", "CACHORRO", "INTERNACIONAL", 
+            "LIVRO", "MONTANHA", "OCEANO", "PARALELEPIPEDO", "QUADRO", 
+            "RAPOSA", "SAPATO", "TELEFONE", "URSO", "VIOLETA",
+            "XICARA", "ZEBRA", "FUTEBOL", "GIRAFA", "HOSPITAL"
+        ];
+        let selectedWord = words[Math.floor(Math.random() * words.length)];
+        let attempts = 6;
+        let guessedLetters = [];
+        let correctGuesses = Array(selectedWord.length).fill("_");
+
+        function updateDisplay() {
+            document.getElementById("word").textContent = correctGuesses.join(" ");
+            document.getElementById("letters").textContent = "Tentativas: " + guessedLetters.join(", ");
+            document.getElementById("hangman").textContent = "Erros restantes: " + attempts;
+        }
+
+        function createKeyboard() {
+            const keyboard = document.getElementById("keyboard");
+            const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            keyboard.innerHTML = "";
+            for (let letter of alphabet) {
+                const button = document.createElement("button");
+                button.textContent = letter;
+                button.classList.add("key");
+                button.onclick = () => guess(letter, button);
+                keyboard.appendChild(button);
+            }
+        }
+
+        function guess(letter, button) {
+            if (!guessedLetters.includes(letter)) {
+                guessedLetters.push(letter);
+                button.disabled = true;
+
+                if (selectedWord.includes(letter)) {
+                    for (let i = 0; i < selectedWord.length; i++) {
+                        if (selectedWord[i] === letter) {
+                            correctGuesses[i] = letter;
+                        }
+                    }
+                } else {
+                    attempts--;
+                }
+
+                updateDisplay();
+                checkGameStatus();
+            }
+        }
+
+        function checkGameStatus() {
+            if (!correctGuesses.includes("_")) {
+                document.getElementById("message").textContent = "Você venceu!";
+            } else if (attempts === 0) {
+                document.getElementById("message").textContent = "Você perdeu! A palavra era " + selectedWord;
+            }
+        }
+
+        function reset() {
+            selectedWord = words[Math.floor(Math.random() * words.length)];
+            attempts = 6;
+            guessedLetters = [];
+            correctGuesses = Array(selectedWord.length).fill("_");
+            document.getElementById("message").textContent = "";
+            updateDisplay();
+            createKeyboard();
+        }
+
+        updateDisplay();
+        createKeyboard();
+    </script>
+</body>
+</html>

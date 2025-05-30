@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genius</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        #game-container {
+            text-align: center;
+        }
+        #buttons-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .game-button {
+            width: 150px;
+            height: 150px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: transform 0.1s, filter 0.3s;
+        }
+        .game-button:active, .game-button.active {
+            transform: scale(0.95);
+        }
+        #red { background-color: #ff4136; }
+        #green { background-color: #2ecc40; }
+        #blue { background-color: #0074d9; }
+        #yellow { background-color: #ffdc00; }
+        #start-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #7fdbff;
+            color: #1a1a1a;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #start-button:hover {
+            background-color: #b4e7ff;
+        }
+        #score {
+            font-size: 24px;
+            margin-top: 20px;
+        }
+        @media (max-width: 480px) {
+            .game-button {
+                width: 120px;
+                height: 120px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>Genius</h1>
+        <div id="buttons-container">
+            <button id="red" class="game-button" aria-label="Red"></button>
+            <button id="green" class="game-button" aria-label="Green"></button>
+            <button id="blue" class="game-button" aria-label="Blue"></button>
+            <button id="yellow" class="game-button" aria-label="Yellow"></button>
+        </div>
+        <button id="start-button">Start Game</button>
+        <div id="score">Score: 0</div>
+    </div>
+    <script>
+        const buttons = ['red', 'green', 'blue', 'yellow'];
+        let sequence = [];
+        let playerSequence = [];
+        let score = 0;
+        let gameStarted = false;
+
+        const startButton = document.getElementById('start-button');
+        const scoreDisplay = document.getElementById('score');
+        const gameButtons = document.querySelectorAll('.game-button');
+
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playTone(frequency, duration) {
+            const oscillator = audioContext.createOscillator();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+
+            const gainNode = audioContext.createGain();
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        function getButtonTone(color) {
+            const tones = { red: 329.63, green: 261.63, blue: 220.00, yellow: 164.81 };
+            return tones[color];
+        }
+
+        function activateButton(color) {
+            const button = document.getElementById(color);
+            button.classList.add('active');
+            playTone(getButtonTone(color), 0.5);
+            setTimeout(() => button.classList.remove('active'), 300);
+        }
+
+        function generateSequence() {
+            const randomColor = buttons[Math.floor(Math.random() * buttons.length)];
+            sequence.push(randomColor);
+        }
+
+        function displaySequence() {
+            gameButtons.forEach(btn => btn.disabled = true);
+            sequence.forEach((color, index) => {
+                setTimeout(() => {
+                    activateButton(color);
+                    if (index === sequence.length - 1) {
+                        setTimeout(() => {
+                            gameButtons.forEach(btn => btn.disabled = false);
+                        }, 300);
+                    }
+                }, (index + 1) * 600);
+            });
+        }
+
+        function startGame() {
+            sequence = [];
+            playerSequence = [];
+            score = 0;
+            gameStarted = true;
+            scoreDisplay.textContent = `Score: ${score}`;
+            generateSequence();
+            displaySequence();
+            startButton.disabled = true;
+        }
+
+        function checkSequence() {
+            for (let i = 0; i < playerSequence.length; i++) {
+                if (playerSequence[i] !== sequence[i]) {
+                    endGame();
+                    return;
+                }
+            }
+            if (playerSequence.length === sequence.length) {
+                score++;
+                scoreDisplay.textContent = `Score: ${score}`;
+                playerSequence = [];
+                setTimeout(() => {
+                    generateSequence();
+                    displaySequence();
+                }, 1000);
+            }
+        }
+
+        function endGame() {
+            playTone(100, 1);
+            alert(`Game Over! Your score: ${score}`);
+            gameStarted = false;
+            startButton.disabled = false;
+        }
+
+        startButton.addEventListener('click', startGame);
+
+        gameButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                if (gameStarted) {
+                    const color = button.id;
+                    activateButton(color);
+                    playerSequence.push(color);
+                    checkSequence();
+                }
+            });
+        });
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (gameStarted) {
+                const keyMap = { 'r': 'red', 'g': 'green', 'b': 'blue', 'y': 'yellow' };
+                if (keyMap[e.key]) {
+                    const color = keyMap[e.key];
+                    activateButton(color);
+                    playerSequence.push(color);
+                    checkSequence();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Climb</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #e6f7ff;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            max-width: 100%;
+            max-height: 100vh;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const CANVAS_WIDTH = 400;
+        const CANVAS_HEIGHT = 600;
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = CANVAS_HEIGHT;
+
+        const offscreenCanvas = document.createElement('canvas');
+        offscreenCanvas.width = CANVAS_WIDTH;
+        offscreenCanvas.height = CANVAS_HEIGHT;
+        const offscreenCtx = offscreenCanvas.getContext('2d');
+
+        let score = 0;
+        let highScore = 0;
+        let cameraOffset = 0;
+        let targetCameraOffset = 0;
+        const visitedPlatforms = new Set();
+
+        const hasLocalStorage = (function() {
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                return true;
+            } catch(e) {
+                return false;
+            }
+        })();
+
+        if (hasLocalStorage) {
+            highScore = localStorage.getItem('highScore') || 0;
+        }
+
+        class Player {
+            constructor() {
+                this.width = 30;
+                this.height = 50;
+                this.x = CANVAS_WIDTH / 2 - this.width / 2;
+                this.y = CANVAS_HEIGHT - this.height - 20;
+                this.speed = 5;
+                this.jumpForce = 15;
+                this.gravity = 0.6;
+                this.velocityY = 0;
+                this.isJumping = false;
+            }
+
+            draw(ctx) {
+                ctx.fillStyle = '#4fc3f7';
+                ctx.beginPath();
+                ctx.roundRect(this.x, this.y - cameraOffset, this.width, this.height, 5);
+                ctx.fill();
+            }
+
+            move(direction) {
+                this.x += direction * this.speed;
+                if (this.x < 0) this.x = 0;
+                if (this.x + this.width > CANVAS_WIDTH) this.x = CANVAS_WIDTH - this.width;
+            }
+
+            jump() {
+                if (!this.isJumping) {
+                    this.velocityY = -this.jumpForce;
+                    this.isJumping = true;
+                }
+            }
+
+            update() {
+                this.velocityY += this.gravity;
+                this.y += this.velocityY;
+                targetCameraOffset = this.y - CANVAS_HEIGHT / 2;
+
+                if (this.y > cameraOffset + CANVAS_HEIGHT + 200) {
+                    this.y = cameraOffset + CANVAS_HEIGHT - this.height;
+                    this.velocityY = 0;
+                    score = 0;
+                    visitedPlatforms.clear();
+                }
+            }
+        }
+
+        class IceBlock {
+            constructor(x, y, width, isGround = false) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = 20;
+                this.speed = isGround ? 0 : (Math.random() * 2 + 1) * (Math.random() < 0.5 ? -1 : 1);
+                this.isGround = isGround;
+                this.id = Math.random().toString(36).substr(2, 9);
+            }
+
+            draw(ctx) {
+                const gradient = ctx.createLinearGradient(this.x, this.y - cameraOffset, this.x, this.y + this.height - cameraOffset);
+                gradient.addColorStop(0, '#a8e6ff');
+                gradient.addColorStop(1, '#4fc3f7');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.roundRect(this.x, this.y - cameraOffset, this.width, this.height, 5);
+                ctx.fill();
+            }
+
+            update() {
+                if (!this.isGround) {
+                    this.x += this.speed;
+                    if (this.x + this.width < 0 || this.x > CANVAS_WIDTH) {
+                        this.speed = -this.speed;
+                    }
+                }
+            }
+        }
+
+        const player = new Player();
+        const iceBlocks = [];
+
+        function createIceBlocks() {
+            iceBlocks.push(new IceBlock(0, CANVAS_HEIGHT - 20, CANVAS_WIDTH, true));
+            
+            for (let i = 1; i < 15; i++) {
+                const width = Math.random() * 100 + 50;
+                const gap = 80 + i * 8;
+                iceBlocks.push(new IceBlock(
+                    Math.random() * (CANVAS_WIDTH - width),
+                    CANVAS_HEIGHT - gap - i * 80,
+                    width
+                ));
+            }
+        }
+
+        createIceBlocks();
+
+        let leftPressed = false;
+        let rightPressed = false;
+
+        function checkCollision(player, iceBlock) {
+            return player.x < iceBlock.x + iceBlock.width &&
+                   player.x + player.width > iceBlock.x &&
+                   player.y + player.height >= iceBlock.y &&
+                   player.y + player.height <= iceBlock.y + iceBlock.height &&
+                   player.velocityY > 0;
+        }
+
+        const backgroundGradient = offscreenCtx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+        backgroundGradient.addColorStop(0, '#e6f7ff');
+        backgroundGradient.addColorStop(1, '#b3e5fc');
+
+        function drawBackground(ctx) {
+            ctx.fillStyle = backgroundGradient;
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        }
+
+        function drawUI(ctx) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, 60);
+
+            ctx.fillStyle = '#0277bd';
+            ctx.font = 'bold 20px Arial';
+            ctx.fillText(`Score: ${score}`, 10, 30);
+            ctx.fillText(`High Score: ${highScore}`, 10, 55);
+
+            if ('ontouchstart' in window) {
+                ctx.fillStyle = 'rgba(79, 195, 247, 0.5)';
+                ctx.beginPath();
+                ctx.arc(CANVAS_WIDTH - 50, CANVAS_HEIGHT - 50, 40, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText('Jump', CANVAS_WIDTH - 70, CANVAS_HEIGHT - 45);
+            }
+        }
+
+        function gameLoop() {
+            offscreenCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            drawBackground(offscreenCtx);
+
+            if (leftPressed) player.move(-1);
+            if (rightPressed) player.move(1);
+
+            player.update();
+
+            cameraOffset += (targetCameraOffset - cameraOffset) * 0.1;
+
+            let highestBlockY = Infinity;
+            for (let i = 0; i < iceBlocks.length; i++) {
+                const block = iceBlocks[i];
+                block.update();
+                
+                if (block.y - cameraOffset < CANVAS_HEIGHT + 100) {
+                    block.draw(offscreenCtx);
+                }
+
+                if (checkCollision(player, block)) {
+                    player.y = block.y - player.height;
+                    player.velocityY = 0;
+                    player.isJumping = false;
+
+                    if (block.isGround && player.y > CANVAS_HEIGHT / 2) {
+                        score = 1;
+                        visitedPlatforms.clear();
+                    } else if (!visitedPlatforms.has(block.id)) {
+                        visitedPlatforms.add(block.id);
+                        score++;
+                        if (score > highScore) {
+                            highScore = score;
+                            if (hasLocalStorage) {
+                                localStorage.setItem('highScore', highScore);
+                            }
+                        }
+                    }
+                }
+
+                if (block.y < highestBlockY) {
+                    highestBlockY = block.y;
+                }
+            }
+
+            // Create new platforms as needed
+            while (highestBlockY > cameraOffset - 200) {
+                const width = Math.random() * 100 + 50;
+                const gap = 120 + Math.floor(score / 100) * 8;
+                iceBlocks.push(new IceBlock(
+                    Math.random() * (CANVAS_WIDTH - width),
+                    highestBlockY - gap,
+                    width
+                ));
+                highestBlockY -= gap;
+            }
+
+            player.draw(offscreenCtx);
+            drawUI(offscreenCtx);
+
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            ctx.drawImage(offscreenCanvas, 0, 0);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') leftPressed = true;
+            if (e.key === 'ArrowRight') rightPressed = true;
+            if (e.key === 'ArrowUp' || e.key === ' ') player.jump();
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft') leftPressed = false;
+            if (e.key === 'ArrowRight') rightPressed = false;
+        });
+
+        canvas.addEventListener('touchstart', handleTouch, { passive: false });
+        canvas.addEventListener('touchmove', handleTouch, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+        function handleTouch(e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = CANVAS_WIDTH / rect.width;
+            const scaleY = CANVAS_HEIGHT / rect.height;
+
+            for (let i = 0; i < e.touches.length; i++) {
+                const touch = e.touches[i];
+                const x = (touch.clientX - rect.left) * scaleX;
+                const y = (touch.clientY - rect.top) * scaleY;
+
+                const distToJumpButton = Math.hypot(x - (CANVAS_WIDTH - 50), y - (CANVAS_HEIGHT - 50));
+                if (distToJumpButton <= 40) {
+                    player.jump();
+                } else {
+                    if (x < CANVAS_WIDTH / 2) {
+                        leftPressed = true;
+                        rightPressed = false;
+                    } else {
+                        rightPressed = true;
+                        leftPressed = false;
+                    }
+                }
+            }
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            if (e.touches.length === 0) {
+                leftPressed = false;
+                rightPressed = false;
+            }
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>

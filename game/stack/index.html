@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stack</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Poppins', sans-serif;
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #e0e0e0;
+        }
+
+        #gameContainer {
+            width: 100vw;
+            max-width: 500px;
+            height: 90vh;
+            background-color: #16213e;
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+        }
+
+        #gameArea {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #movingSquare {
+            width: 20vw;
+            height: 5vh;
+            background-color: #ff6b6b;
+            position: absolute;
+            top: 0;
+            border-radius: 5px;
+            transition: width 0.3s ease;
+        }
+
+        .stackSquare {
+            position: absolute;
+            background-color: #4ecdc4;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            color: #e0e0e0;
+            z-index: 10;
+        }
+
+        #startScreen, #gameOverScreen, #winScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(22, 33, 62, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #e0e0e0;
+            z-index: 100;
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #4ecdc4;
+        }
+
+        button {
+            background-color: #4ecdc4;
+            border: none;
+            padding: 15px 30px;
+            font-size: 20px;
+            color: #16213e;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #45b7aa;
+        }
+
+        #instructions {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 16px;
+            max-width: 80%;
+            color: #a0a0a0;
+        }
+
+        #accuracyIndicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 18px;
+            color: #e0e0e0;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        @keyframes dropAnimation {
+            0% { transform: translateY(-20vh); }
+            100% { transform: translateY(0); }
+        }
+
+        @keyframes perfectStack {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes winAnimation {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1) rotate(5deg); }
+        }
+
+        .perfect {
+            animation: perfectStack 0.5s ease;
+        }
+
+        .falling {
+            animation: dropAnimation 0.5s ease;
+        }
+
+        .win {
+            animation: winAnimation 1s ease infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="gameArea">
+            <div id="movingSquare"></div>
+            <div id="score">Score: 0</div>
+            <div id="accuracyIndicator"></div>
+        </div>
+        <div id="startScreen">
+            <h1>Stack</h1>
+            <button id="startButton">Start Game</button>
+            <div id="instructions">
+                Click or tap to drop the block. <br>
+                Stack them as accurately as possible!
+            </div>
+        </div>
+        <div id="gameOverScreen" style="display: none;">
+            <h1>Game Over</h1>
+            <div id="finalScore"></div>
+            <button id="restartButton">Play Again</button>
+        </div>
+        <div id="winScreen" style="display: none;">
+            <h1 class="win">You Win!</h1>
+            <div id="winScore"></div>
+            <button id="winRestartButton">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const gameContainer = document.getElementById('gameContainer');
+        const gameArea = document.getElementById('gameArea');
+        const movingSquare = document.getElementById('movingSquare');
+        const scoreElement = document.getElementById('score');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const winScreen = document.getElementById('winScreen');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const winRestartButton = document.getElementById('winRestartButton');
+        const finalScoreElement = document.getElementById('finalScore');
+        const winScoreElement = document.getElementById('winScore');
+        const accuracyIndicator = document.getElementById('accuracyIndicator');
+
+        let gameWidth, squareWidth, squareHeight, squareX, squareY, direction, speed, stack, score, gameOver, combo;
+
+        function initGame() {
+            gameWidth = gameArea.offsetWidth;
+            squareWidth = gameWidth * 0.2;
+            squareHeight = gameArea.offsetHeight * 0.05;
+            squareX = 0;
+            squareY = 0;
+            direction = 1;
+            speed = gameWidth * 0.005;
+            stack = [];
+            score = 0;
+            combo = 0;
+            gameOver = false;
+
+            movingSquare.style.width = `${squareWidth}px`;
+            movingSquare.style.height = `${squareHeight}px`;
+
+            addInitialSquare();
+
+            updateScore();
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            winScreen.style.display = 'none';
+            gameArea.addEventListener('click', dropSquare);
+            moveSquare();
+        }
+
+        function addInitialSquare() {
+            const initialSquare = document.createElement('div');
+            initialSquare.className = 'stackSquare';
+            initialSquare.style.width = `${squareWidth}px`;
+            initialSquare.style.height = `${squareHeight}px`;
+            initialSquare.style.left = `${(gameWidth - squareWidth) / 2}px`;
+            initialSquare.style.bottom = '0px';
+            gameArea.appendChild(initialSquare);
+            stack.push(initialSquare);
+        }
+
+        function updateScore() {
+            scoreElement.textContent = `Score: ${score}`;
+        }
+
+        function moveSquare() {
+            if (gameOver) return;
+
+            squareX += speed * direction;
+
+            if (squareX + squareWidth > gameWidth || squareX < 0) {
+                direction *= -1;
+            }
+
+            movingSquare.style.left = `${squareX}px`;
+            requestAnimationFrame(moveSquare);
+        }
+
+        function dropSquare() {
+            if (gameOver) return;
+
+            let prevSquare = stack[stack.length - 1];
+            let overlap = 0;
+            let accuracy = 100;
+
+            if (prevSquare) {
+                let prevLeft = parseInt(prevSquare.style.left);
+                let prevRight = prevLeft + parseInt(prevSquare.style.width);
+                let currentLeft = squareX;
+                let currentRight = squareX + squareWidth;
+
+                if (currentLeft > prevRight || currentRight < prevLeft) {
+                    endGame();
+                    return;
+                }
+
+                let overlapLeft = Math.max(currentLeft, prevLeft);
+                let overlapRight = Math.min(currentRight, prevRight);
+                overlap = overlapRight - overlapLeft;
+
+                accuracy = Math.round((overlap / squareWidth) * 100);
+
+                squareX = overlapLeft;
+                squareWidth = overlap;
+            }
+
+            let newSquare = document.createElement('div');
+            newSquare.className = 'stackSquare falling';
+            newSquare.style.width = `${squareWidth}px`;
+            newSquare.style.height = `${squareHeight}px`;
+            newSquare.style.left = `${squareX}px`;
+            newSquare.style.bottom = `${stack.length * squareHeight}px`;
+            gameArea.appendChild(newSquare);
+
+            if (accuracy === 100) {
+                newSquare.classList.add('perfect');
+                combo++;
+            } else {
+                combo = 0;
+            }
+
+            stack.push(newSquare);
+            score += accuracy + (combo * 10);
+            updateScore();
+
+            showAccuracyIndicator(accuracy);
+
+            squareY = 0;
+            movingSquare.style.width = `${squareWidth}px`;
+            speed += gameWidth * 0.0003;
+
+            if (stack.length * squareHeight > gameArea.offsetHeight - squareHeight) {
+                gameArea.style.bottom = `${stack.length * squareHeight - gameArea.offsetHeight + squareHeight}px`;
+            }
+
+            if (stack.length * squareHeight >= gameArea.offsetHeight) {
+                winGame();
+            }
+        }
+
+        function showAccuracyIndicator(accuracy) {
+            accuracyIndicator.textContent = `${accuracy}% Accurate${combo > 1 ? ' | Combo x' + combo : ''}`;
+            accuracyIndicator.style.opacity = 1;
+            setTimeout(() => {
+                accuracyIndicator.style.opacity = 0;
+            }, 1000);
+        }
+
+        function endGame() {
+            gameOver = true;
+            gameArea.removeEventListener('click', dropSquare);
+            finalScoreElement.textContent = `Final Score: ${score}`;
+            gameOverScreen.style.display = 'flex';
+        }
+
+        function winGame() {
+            gameOver = true;
+            gameArea.removeEventListener('click', dropSquare);
+            winScoreElement.textContent = `Final Score: ${score}`;
+            winScreen.style.display = 'flex';
+        }
+
+        startButton.addEventListener('click', initGame);
+        restartButton.addEventListener('click', resetGame);
+        winRestartButton.addEventListener('click', resetGame);
+
+        function resetGame() {
+            while (gameArea.firstChild) {
+                gameArea.removeChild(gameArea.firstChild);
+            }
+            gameArea.appendChild(movingSquare);
+            gameArea.appendChild(scoreElement);
+            gameArea.appendChild(accuracyIndicator);
+            gameArea.style.bottom = '0px';
+            initGame();
+        }
+
+        // Initial setup
+        gameOverScreen.style.display = 'none';
+        winScreen.style.display = 'none';
+    </script>
+</body>
+</html>
